@@ -8,6 +8,8 @@ import { Player } from './pages/Player';
 import { Category } from './pages/Category';
 import { Genre } from './pages/Genre';
 import { MyList } from './pages/MyList';
+import { Shorts } from './pages/Shorts';
+import { Navbar } from './components/Navbar';
 
 import { useMyList } from './hooks/useMyList';
 
@@ -20,6 +22,12 @@ function App() {
 
   return (
     <Routes>
+      <Route path="/shorts" element={
+        <>
+          <Navbar />
+          <Shorts />
+        </>
+      } />
       <Route path="/" element={<Layout />}>
         <Route index element={<Home />} />
         <Route path="search" element={<Search />} />

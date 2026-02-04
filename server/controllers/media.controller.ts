@@ -7,7 +7,9 @@ export const mediaController = {
 
   getTrending: async (req: Request, res: Response) => {
     try {
-      const data = await tmdbService.getTrending();
+      const { page } = req.query;
+      const pageNum = page ? parseInt(page as string) : 1;
+      const data = await tmdbService.getTrending('day', pageNum);
       res.json(data);
     } catch (error) {
       res.status(500).json({ error: 'Failed to fetch trending content' });
@@ -17,9 +19,11 @@ export const mediaController = {
   getPopular: async (req: Request, res: Response) => {
     try {
       const { type } = req.params;
+      const { page } = req.query;
+      const pageNum = page ? parseInt(page as string) : 1;
       const data = type === 'movie' 
-        ? await tmdbService.getPopularMovies() 
-        : await tmdbService.getPopularTV();
+        ? await tmdbService.getPopularMovies(pageNum) 
+        : await tmdbService.getPopularTV(pageNum);
       res.json(data);
     } catch (error) {
       res.status(500).json({ error: 'Failed to fetch popular content' });
@@ -40,11 +44,11 @@ export const mediaController = {
         // Fetch movies and TV shows for this genre
         const promises = [];
         if (genreMatch.movie) {
-          promises.push(tmdbService.discoverByGenre('movie', genreMatch.movie.id)
+          promises.push(tmdbService.discover('movie', 1, 'popularity.desc', genreMatch.movie.id)
             .then((data: any) => ({ ...data, type: 'movie' })));
         }
         if (genreMatch.tv) {
-          promises.push(tmdbService.discoverByGenre('tv', genreMatch.tv.id)
+          promises.push(tmdbService.discover('tv', 1, 'popularity.desc', genreMatch.tv.id)
             .then((data: any) => ({ ...data, type: 'tv' })));
         }
 
@@ -74,6 +78,23 @@ export const mediaController = {
       }
 
       const data = await tmdbService.search(query);
+
+      // Improved Person Search:
+      // If the top result is a person, fetch their known works (movies/tv) 
+      // instead of returning the person object.
+      if (data.results && data.results.length > 0) {
+        const topResult = data.results[0];
+        if (topResult.media_type === 'person') {
+          const credits = await tmdbService.getPersonCredits(topResult.id);
+          return res.json({
+            page: 1,
+            results: credits,
+            total_pages: 1,
+            total_results: credits.length
+          });
+        }
+      }
+
       res.json(data);
     } catch (error) {
       console.error(error);
@@ -163,16 +184,17 @@ export const mediaController = {
   discover: async (req: Request, res: Response) => {
     try {
       const { type } = req.params;
-      const { with_genres, page } = req.query;
+      const { with_genres, page, sort_by } = req.query;
       
       if (type !== 'movie' && type !== 'tv') {
         return res.status(400).json({ error: 'Invalid media type' });
       }
 
       const pageNum = page ? parseInt(page as string) : 1;
-      const genreId = with_genres as string;
+      const genreId = with_genres ? (with_genres as string) : undefined;
+      const sortBy = sort_by ? (sort_by as string) : 'popularity.desc';
 
-      const data = await tmdbService.discoverByGenre(type, genreId, pageNum);
+      const data = await tmdbService.discover(type, pageNum, sortBy, genreId);
       res.json(data);
     } catch (error) {
       res.status(500).json({ error: 'Failed to discover content' });
@@ -203,6 +225,17 @@ export const mediaController = {
       res.json({ sources });
     } catch (error) {
       res.status(500).json({ error: 'Failed to fetch sources' });
+    }
+  },
+
+  getShorts: async (req: Request, res: Response) => {
+    try {
+      const { genres, page } = req.query;
+      const pageNum = page ? parseInt(page as string) : 1;
+      const data = await tmdbService.getShortsContent(genres as string, pageNum);
+      res.json(data);
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to fetch shorts' });
     }
   }
 };

@@ -1,14 +1,14 @@
 const API_BASE_URL = '/api';
 
 export const api = {
-  getTrending: async (timeWindow: 'day' | 'week' = 'day') => {
-    const res = await fetch(`${API_BASE_URL}/trending?timeWindow=${timeWindow}`);
+  getTrending: async (timeWindow: 'day' | 'week' = 'day', page: number = 1) => {
+    const res = await fetch(`${API_BASE_URL}/trending?timeWindow=${timeWindow}&page=${page}`);
     if (!res.ok) throw new Error('API Request Failed');
     return res.json();
   },
   
-  getPopular: async (type: 'movie' | 'tv') => {
-    const res = await fetch(`${API_BASE_URL}/popular/${type}`);
+  getPopular: async (type: 'movie' | 'tv', page: number = 1) => {
+    const res = await fetch(`${API_BASE_URL}/popular/${type}?page=${page}`);
     return res.json();
   },
 
@@ -22,9 +22,17 @@ export const api = {
     return res.json();
   },
 
-  discoverByGenre: async (type: 'movie' | 'tv', genreId: number | string, page: number = 1) => {
-    const res = await fetch(`${API_BASE_URL}/discover/${type}?with_genres=${genreId}&page=${page}`);
+  discover: async (type: 'movie' | 'tv', page: number = 1, sortBy: string = 'popularity.desc', genreId?: number | string) => {
+    let url = `${API_BASE_URL}/discover/${type}?page=${page}&sort_by=${sortBy}`;
+    if (genreId) {
+      url += `&with_genres=${genreId}`;
+    }
+    const res = await fetch(url);
     return res.json();
+  },
+
+  discoverByGenre: async (type: 'movie' | 'tv', genreId: number | string, page: number = 1) => {
+    return api.discover(type, page, 'popularity.desc', genreId);
   },
 
   getDetails: async (type: 'movie' | 'tv', id: number) => {
@@ -43,6 +51,16 @@ export const api = {
       url += `?season=${season}&episode=${episode}`;
     }
     const res = await fetch(url);
+    return res.json();
+  },
+
+  getShorts: async (genres?: string, page: number = 1) => {
+    let url = `${API_BASE_URL}/shorts?page=${page}`;
+    if (genres) {
+      url += `&genres=${encodeURIComponent(genres)}`;
+    }
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('API Request Failed');
     return res.json();
   },
 

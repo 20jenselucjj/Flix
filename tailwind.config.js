@@ -7,7 +7,7 @@ export default {
   theme: {
     extend: {
       colors: {
-        primary: '#E50914', // Netflix Red
+        primary: '#EE1A31', // Brand Red
         background: '#141414',
         surface: '#181818',
         'surface-hover': '#282828',

@@ -61,11 +61,61 @@ export const Player: React.FC = () => {
   const [showControls, setShowControls] = useState(true);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isSubtitlesEnabled, setIsSubtitlesEnabled] = useState(false);
+  const [isZoomed, setIsZoomed] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const toastTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const touchStartDist = useRef<number | null>(null);
   
   const isEmbed = currentSource?.type === 'embed';
   const { saveProgress, getProgress } = useWatchHistory();
   const isMobile = useIsMobile();
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    toastTimeoutRef.current = setTimeout(() => setToastMessage(null), 2000);
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    // Only allow gestures in landscape mode
+    const isLandscape = window.matchMedia("(orientation: landscape)").matches;
+    if (!isLandscape) return;
+
+    if (e.touches.length === 2) {
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      touchStartDist.current = dist;
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    // Only allow gestures in landscape mode
+    const isLandscape = window.matchMedia("(orientation: landscape)").matches;
+    if (!isLandscape) return;
+
+    if (e.touches.length === 2 && touchStartDist.current) {
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      
+      const delta = dist - touchStartDist.current;
+      
+      // Threshold for zoom action (e.g., 50px difference)
+      if (delta > 50 && !isZoomed) {
+        setIsZoomed(true);
+        showToast('Zoomed to fill');
+        touchStartDist.current = null; // Reset to avoid multiple triggers
+      } else if (delta < -50 && isZoomed) {
+        setIsZoomed(false);
+        showToast('Original');
+        touchStartDist.current = null;
+      }
+    }
+  };
 
   const getProcessedUrl = (url: string) => {
     try {
@@ -295,6 +345,8 @@ export const Player: React.FC = () => {
       onMouseMove={handleMouseMove}
       onClick={handleInteraction}
       onMouseLeave={() => isPlaying && setShowControls(false)}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
     >
       {/* Ambient Mode Background */}
       {media?.backdrop_path && (
@@ -309,19 +361,28 @@ export const Player: React.FC = () => {
         />
       )}
 
+      {/* Toast Notification */}
+      <div 
+        className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-black/80 text-white px-4 py-2 rounded-full backdrop-blur-md transition-opacity duration-300 pointer-events-none z-50 font-bold ${toastMessage ? 'opacity-100' : 'opacity-0'}`}
+      >
+        {toastMessage}
+      </div>
+
       {isEmbed ? (
-        <iframe
-          src={getProcessedUrl(currentSource.url)}
-          className="w-full h-full border-0 relative z-10"
-          allowFullScreen
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-          referrerPolicy="no-referrer"
-        />
+        <div className={`w-full h-full relative z-10 transition-transform duration-300 ${isZoomed ? 'scale-125' : 'scale-100'}`}>
+            <iframe
+            src={getProcessedUrl(currentSource.url)}
+            className="w-full h-full border-0"
+            allowFullScreen
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            referrerPolicy="no-referrer"
+            />
+        </div>
       ) : (
         <video
           ref={videoRef}
           src={currentSource.url}
-          className="w-full h-full object-contain relative z-10 shadow-2xl"
+          className={`w-full h-full relative z-10 shadow-2xl transition-all duration-300 ${isZoomed ? 'object-cover' : 'object-contain'}`}
           autoPlay
           onTimeUpdate={handleTimeUpdate}
           onPlay={() => setIsPlaying(true)}

@@ -1,14 +1,16 @@
 import React, { useRef } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { Media } from '../types';
 import { MediaCard } from './MediaCard';
 
 interface MediaRowProps {
   title: string;
   items: Media[];
+  linkTo?: string;
 }
 
-export const MediaRow: React.FC<MediaRowProps> = ({ title, items }) => {
+export const MediaRow: React.FC<MediaRowProps> = ({ title, items, linkTo }) => {
   const rowRef = useRef<HTMLDivElement>(null);
 
   const scroll = (direction: 'left' | 'right') => {
@@ -23,7 +25,14 @@ export const MediaRow: React.FC<MediaRowProps> = ({ title, items }) => {
 
   return (
     <div className="mb-8 group/row">
-      <h2 className="text-xl font-bold mb-4 px-4 md:px-12 text-white">{title}</h2>
+      <div className="flex items-center justify-between px-4 md:px-12 mb-4">
+        <h2 className="text-xl font-bold text-white">{title}</h2>
+        {linkTo && (
+          <Link to={linkTo} className="text-sm font-semibold text-gray-400 hover:text-white transition-colors">
+            See All
+          </Link>
+        )}
+      </div>
       <div className="relative">
         <button 
           onClick={() => scroll('left')}

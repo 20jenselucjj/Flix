@@ -11,5 +11,6 @@ router.get('/discover/:type', mediaController.discover);
 router.get('/media/:type/:id', mediaController.getDetails);
 router.get('/media/tv/:id/season/:seasonNumber', mediaController.getSeasonDetails);
 router.get('/sources/:type/:id', mediaController.getSources);
+router.get('/shorts', mediaController.getShorts);
 
 export default router;

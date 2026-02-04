@@ -268,15 +268,13 @@ export const Details: React.FC = () => {
               </Link>
               
               {trailer && (
-                <a
-                  href={`https://www.youtube.com/watch?v=${trailer.key}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  onClick={() => setIsTrailerOpen(true)}
                   className="bg-white/10 text-white px-6 py-3 rounded font-bold flex items-center gap-2 hover:bg-white/20 transition-colors"
                 >
                   <Youtube size={20} />
                   Trailer
-                </a>
+                </button>
               )}
 
               <button 

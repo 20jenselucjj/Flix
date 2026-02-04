@@ -17,6 +17,16 @@ export const Home: React.FC = () => {
   const { recommendations } = useRecommendations();
   const navigate = useNavigate();
 
+  // Track surprised items to avoid repetition
+  const [surprisedHistory, setSurprisedHistory] = useState<Set<number>>(() => {
+    try {
+      const saved = localStorage.getItem('flix_surprised_history');
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
+
   // Deduplicate history to show only the most recent episode per show
   const uniqueHistory = React.useMemo(() => {
     const seen = new Set();
@@ -54,7 +64,18 @@ export const Home: React.FC = () => {
     const pool = [...trending, ...popularMovies, ...popularTV];
     // Filter out items already in history to keep it fresh
     const historyIds = new Set(history.map(h => h.id));
-    const freshPool = pool.filter(m => !historyIds.has(m.id));
+    
+    // Filter out items already watched OR already surprised
+    let freshPool = pool.filter(m => !historyIds.has(m.id) && !surprisedHistory.has(m.id));
+    
+    // If we've run out of fresh "surprise" options (e.g. cycled through everything), 
+    // reset the surprise history but keep excluding watched items
+    if (freshPool.length === 0) {
+      freshPool = pool.filter(m => !historyIds.has(m.id));
+      // Clear local storage and state
+      localStorage.removeItem('flix_surprised_history');
+      setSurprisedHistory(new Set());
+    }
     
     // Fallback to full pool if watched everything (unlikely)
     const candidates = freshPool.length > 0 ? freshPool : pool;
@@ -62,6 +83,12 @@ export const Home: React.FC = () => {
     if (candidates.length > 0) {
       const random = candidates[Math.floor(Math.random() * candidates.length)];
       const type = random.media_type || (random.title ? 'movie' : 'tv');
+      
+      // Update surprise history
+      const newHistory = new Set(surprisedHistory);
+      newHistory.add(random.id);
+      setSurprisedHistory(newHistory);
+      localStorage.setItem('flix_surprised_history', JSON.stringify([...newHistory]));
       
       const surprisePool = candidates.map(c => ({
         id: c.id,
@@ -98,8 +125,8 @@ export const Home: React.FC = () => {
             <MediaRow title="Recommended For You" items={recommendations} />
         )}
         <MediaRow title="Trending Now" items={trending.slice(1)} />
-        <MediaRow title="Popular Movies" items={popularMovies} />
-        <MediaRow title="Popular TV Shows" items={popularTV} />
+        <MediaRow title="Popular Movies" items={popularMovies} linkTo="/movies" />
+        <MediaRow title="Popular TV Shows" items={popularTV} linkTo="/tv" />
       </div>
     </div>
   );

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Search, Film, Tv, Home, Plus, Menu, X, ChevronDown, Download } from 'lucide-react';
+import { Search, Film, Tv, Home, Plus, Menu, X, ChevronDown, Download, Clapperboard } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../lib/api';
 import { Genre } from '../types';
@@ -65,17 +65,18 @@ export const Navbar: React.FC = () => {
 
   return (
     <header
-      className={`fixed top-0 w-full z-50 transition-all duration-500 ${
+      className={`fixed top-0 w-full z-50 transition-all duration-500 pt-[env(safe-area-inset-top)] ${
         isScrolled || isMobileMenuOpen ? 'bg-[#141414]/95 backdrop-blur-xl shadow-2xl border-b border-white/5' : 'bg-gradient-to-b from-black/80 to-transparent'
       }`}
     >
       <div className="container mx-auto px-4 h-20 flex items-center justify-between">
         <div className="flex items-center gap-12">
-          <Link to="/" className="text-primary font-black text-3xl tracking-tighter hover:scale-105 transition-transform">
-            FLIX
+          <Link to="/" className="hover:scale-105 transition-transform">
+            <img src="/F192.png" alt="FLIX" className="h-10 w-auto object-contain" />
           </Link>
           <nav className="hidden md:flex items-center gap-8">
             <NavLink to="/" label="Home" active={location.pathname === '/'} />
+            <NavLink to="/shorts" label="Shorts" active={location.pathname === '/shorts'} />
             
             <div 
                 className="relative group h-20 flex items-center" 
@@ -167,6 +168,7 @@ export const Navbar: React.FC = () => {
           >
             <nav className="flex flex-col p-4 gap-4">
               <MobileNavLink to="/" label="Home" onClick={() => setIsMobileMenuOpen(false)} />
+              <MobileNavLink to="/shorts" label="Shorts" onClick={() => setIsMobileMenuOpen(false)} />
               <MobileNavLink to="/movies" label="Movies" onClick={() => setIsMobileMenuOpen(false)} />
               <MobileNavLink to="/tv" label="TV Shows" onClick={() => setIsMobileMenuOpen(false)} />
               <div className="border-t border-white/10 pt-2">

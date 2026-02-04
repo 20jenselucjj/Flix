@@ -76,3 +76,15 @@ export interface Genre {
   id: number;
   name: string;
 }
+
+export interface ShortItem {
+  id: number;
+  title: string;
+  overview: string;
+  poster_path: string;
+  backdrop_path: string;
+  vote_average: number;
+  media_type: 'movie';
+  videoId: string;
+  genre_ids?: number[];
+}

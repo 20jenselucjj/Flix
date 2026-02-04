@@ -21,20 +21,26 @@ const GENRE_ALIASES: Record<string, string> = {
 };
 
 export const tmdbService = {
-  getTrending: async (timeWindow: 'day' | 'week' = 'day') => {
-    const response = await tmdbClient.get(`/trending/all/${timeWindow}`);
+  getTrending: async (timeWindow: 'day' | 'week' = 'day', page: number = 1) => {
+    const response = await tmdbClient.get(`/trending/all/${timeWindow}`, {
+      params: { page }
+    });
     response.data.results = await tmdbService._enrichWithCertifications(response.data.results);
     return response.data;
   },
 
-  getPopularMovies: async () => {
-    const response = await tmdbClient.get('/movie/popular');
+  getPopularMovies: async (page: number = 1) => {
+    const response = await tmdbClient.get('/movie/popular', {
+      params: { page }
+    });
     response.data.results = await tmdbService._enrichWithCertifications(response.data.results);
     return response.data;
   },
 
-  getPopularTV: async () => {
-    const response = await tmdbClient.get('/tv/popular');
+  getPopularTV: async (page: number = 1) => {
+    const response = await tmdbClient.get('/tv/popular', {
+      params: { page }
+    });
     response.data.results = await tmdbService._enrichWithCertifications(response.data.results);
     return response.data;
   },
@@ -90,14 +96,34 @@ export const tmdbService = {
     return response.data;
   },
 
-  discoverByGenre: async (type: 'movie' | 'tv', genreId: string | number, page: number = 1) => {
-    const response = await tmdbClient.get(`/discover/${type}`, {
-      params: {
-        with_genres: genreId,
-        page,
-        sort_by: 'popularity.desc'
+  discover: async (type: 'movie' | 'tv', page: number = 1, sortBy: string = 'popularity.desc', genreId?: string | number) => {
+    const params: any = {
+      page,
+      sort_by: sortBy,
+      include_adult: false,
+      include_video: false
+    };
+    
+    // Filter by genre if provided
+    if (genreId) {
+      params.with_genres = genreId;
+    }
+
+    // Quality Control: Filter out noise for Top Rated and Newest
+    if (sortBy === 'vote_average.desc') {
+      // For Top Rated, ensure a significant number of votes to avoid 1-vote wonders
+      params['vote_count.gte'] = 300;
+    } else if (sortBy === 'primary_release_date.desc' || sortBy === 'first_air_date.desc') {
+      // For Newest, ensure it has at least some engagement to be "relevant"
+      // and ensure we don't show far-future releases (though discover defaults usually handle this, explicit is safer)
+      params['vote_count.gte'] = 5;
+      params['release_date.lte'] = new Date().toISOString().split('T')[0];
+      if (type === 'tv') {
+        params['first_air_date.lte'] = new Date().toISOString().split('T')[0];
       }
-    });
+    }
+
+    const response = await tmdbClient.get(`/discover/${type}`, { params });
     response.data.results = await tmdbService._enrichWithCertifications(response.data.results);
     return response.data;
   },
@@ -105,6 +131,96 @@ export const tmdbService = {
   getSeasonDetails: async (tvId: number, seasonNumber: number) => {
     const response = await tmdbClient.get(`/tv/${tvId}/season/${seasonNumber}`);
     return response.data;
+  },
+
+  getShortsContent: async (genres?: string, page: number = 1) => {
+    try {
+      let results = [];
+      
+      if (genres) {
+        // Personalization: Discover based on genres
+        const response = await tmdbClient.get('/discover/movie', {
+          params: {
+            with_genres: genres,
+            sort_by: 'popularity.desc',
+            'vote_count.gte': 100, // Ensure good quality
+            page: page
+          }
+        });
+        results = response.data.results.slice(0, 10);
+        
+        // Add some trending content to mix it up (discovery)
+        const trendingRes = await tmdbClient.get('/trending/movie/week', { params: { page } });
+        const trending = trendingRes.data.results.slice(0, 5);
+        
+        // Merge and deduplicate
+        const existingIds = new Set(results.map((m: any) => m.id));
+        trending.forEach((m: any) => {
+           if (!existingIds.has(m.id)) {
+             results.push(m);
+           }
+        });
+      } else {
+        // Fallback: Just trending
+        const response = await tmdbClient.get('/trending/movie/week', { params: { page } });
+        results = response.data.results.slice(0, 15);
+      }
+
+      const enriched = await Promise.all(results.map(async (item: any) => {
+        try {
+          const vidRes = await tmdbClient.get(`/movie/${item.id}/videos`);
+          const videos = vidRes.data.results;
+          
+          // Find official trailer (YouTube)
+          // Prioritize "Trailer" then "Teaser"
+          const trailer = videos.find((v: any) => v.site === 'YouTube' && v.type === 'Trailer') || 
+                          videos.find((v: any) => v.site === 'YouTube' && v.type === 'Teaser');
+          
+          if (trailer) {
+            return {
+              id: item.id,
+              title: item.title,
+              overview: item.overview,
+              poster_path: item.poster_path,
+              backdrop_path: item.backdrop_path,
+              vote_average: item.vote_average,
+              media_type: 'movie',
+              videoId: trailer.key
+            };
+          }
+          return null;
+        } catch (e) {
+          // If video fetch fails, just skip this item
+          return null;
+        }
+      }));
+
+      // Filter out nulls (items without trailers)
+      // Shuffle results to make it feel more "feed-like"
+      const finalResults = enriched.filter(Boolean);
+      return finalResults.sort(() => Math.random() - 0.5);
+    } catch (e) {
+      console.error('Failed to fetch shorts content', e);
+      return [];
+    }
+  },
+
+  getPersonCredits: async (personId: number) => {
+    const response = await tmdbClient.get(`/person/${personId}/combined_credits`);
+    const cast = response.data.cast || [];
+    
+    // Deduplicate by ID
+    const uniqueCast = Array.from(new Map(cast.map((item: any) => [item.id, item])).values());
+    
+    // Sort by vote_count (descending) to show "top" movies first
+    // This prioritizes famous blockbusters over recent obscure appearances
+    uniqueCast.sort((a: any, b: any) => (b.vote_count || 0) - (a.vote_count || 0));
+    
+    // Enrich top results
+    const topCredits = uniqueCast.slice(0, 40); // Fetch enough for a full grid
+    const enriched = await tmdbService._enrichWithCertifications(topCredits);
+    
+    return enriched;
   },
 
   _enrichWithCertifications: async (results: any[]) => {

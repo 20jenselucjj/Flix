@@ -11,7 +11,17 @@ export interface WatchHistoryItem extends Media {
   episode?: number;
 }
 
+export type InteractionType = 'like' | 'dislike' | 'full_watch' | 'partial_watch' | 'skip';
+
+interface InteractionEvent {
+  mediaId: number;
+  genres: number[];
+  type: InteractionType;
+  timestamp: number;
+}
+
 const USER_ID_KEY = 'flix_user_id';
+const INTERACTIONS_KEY = 'flix_user_interactions';
 
 const getUserId = () => {
   let userId = localStorage.getItem(USER_ID_KEY);
@@ -24,7 +34,19 @@ const getUserId = () => {
 
 export const useWatchHistory = () => {
   const [history, setHistory] = useState<WatchHistoryItem[]>([]);
+  const [interactions, setInteractions] = useState<InteractionEvent[]>(() => {
+    try {
+      const saved = localStorage.getItem(INTERACTIONS_KEY);
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      return [];
+    }
+  });
   const userId = getUserId();
+
+  useEffect(() => {
+    localStorage.setItem(INTERACTIONS_KEY, JSON.stringify(interactions));
+  }, [interactions]);
 
   useEffect(() => {
     const fetchHistory = async () => {
@@ -134,11 +156,60 @@ export const useWatchHistory = () => {
     return sortedGenres.join('|');
   };
 
+  const recordInteraction = (mediaId: number, genres: number[], type: InteractionType) => {
+    const newInteraction: InteractionEvent = {
+      mediaId,
+      genres,
+      type,
+      timestamp: Date.now(),
+    };
+    setInteractions((prev) => [...prev, newInteraction]);
+  };
+
+  const getWeightedGenres = () => {
+    const genreScores: Record<number, number> = {};
+    const now = Date.now();
+    const MS_PER_DAY = 1000 * 60 * 60 * 24;
+
+    // Weight configuration
+    const weights: Record<InteractionType, number> = {
+      like: 10,
+      full_watch: 5,
+      partial_watch: 1,
+      skip: -3,
+      dislike: -10,
+    };
+
+    if (interactions.length === 0) {
+      return getTopGenres();
+    }
+
+    interactions.forEach((interaction) => {
+      const daysSince = (now - interaction.timestamp) / MS_PER_DAY;
+      // Decay factor: retains 90% of value each day
+      const decay = Math.max(0.1, Math.pow(0.9, daysSince)); 
+      const score = (weights[interaction.type] || 0) * decay;
+
+      interaction.genres.forEach((genreId) => {
+        genreScores[genreId] = (genreScores[genreId] || 0) + score;
+      });
+    });
+
+    // Sort by score
+    return Object.entries(genreScores)
+      .sort(([, a], [, b]) => b - a)
+      .map(([id]) => id)
+      .slice(0, 5)
+      .join('|');
+  };
+
   return {
     history,
     saveProgress,
     getProgress,
     removeFromHistory,
-    getTopGenres
+    getTopGenres,
+    recordInteraction,
+    getWeightedGenres
   };
 };

@@ -17,7 +17,7 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       injectRegister: null, // We handle registration manually to catch errors
-      includeAssets: ['favicon.svg', 'Flogo192.png', 'Flogo512.png'],
+      includeAssets: ['F192.png', 'F512.png', 'maskable-icon-192.png', 'maskable-icon-512.png'],
       manifest: {
         name: 'Flix',
         short_name: 'Flix',
@@ -25,30 +25,30 @@ export default defineConfig({
         theme_color: '#000000',
         background_color: '#000000',
         display: 'standalone',
-        orientation: 'portrait',
+        orientation: 'any',
         start_url: '/',
         scope: '/',
         icons: [
           {
-            src: 'Flogo192.png',
+            src: 'F192.png',
             sizes: '192x192',
             type: 'image/png',
             purpose: 'any'
           },
           {
-            src: 'Flogo512.png',
+            src: 'F512.png',
             sizes: '512x512',
             type: 'image/png',
             purpose: 'any'
           },
           {
-            src: 'Flogo192.png',
+            src: 'maskable-icon-192.png',
             sizes: '192x192',
             type: 'image/png',
             purpose: 'maskable'
           },
           {
-            src: 'Flogo512.png',
+            src: 'maskable-icon-512.png',
             sizes: '512x512',
             type: 'image/png',
             purpose: 'maskable'
