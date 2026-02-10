@@ -78,7 +78,7 @@ export const Category: React.FC<CategoryProps> = ({ type }) => {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8 pt-24">
+    <div className="container mx-auto px-4 py-8 pt-20">
       <div className="flex flex-row items-center justify-between mb-4">
         <h2 className="text-2xl font-bold">{getTitle()}</h2>
         <FilterBar 

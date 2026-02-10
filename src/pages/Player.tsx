@@ -1,40 +1,13 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Settings, Maximize, Play, Pause, Volume2, VolumeX, Captions } from 'lucide-react';
+import { ArrowLeft, Settings, Maximize, Play, Pause, Volume2, VolumeX, Captions, SkipBack, SkipForward, RotateCcw, RotateCw } from 'lucide-react';
 import { api } from '../lib/api';
 import { StreamSource, MediaDetails } from '../types';
 import { useWatchHistory } from '../hooks/useWatchHistory';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { getImageUrl } from '../lib/utils';
-
-const checkSourceHealth = async (url: string) => {
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 2000);
-    await fetch(url, { method: 'HEAD', mode: 'no-cors', signal: controller.signal });
-    clearTimeout(timeoutId);
-    return true;
-  } catch (e) {
-    return false;
-  }
-};
-
-const findBestSource = async (availableSources: StreamSource[]) => {
-  // Check first 3 sources in parallel to save time, as they are most likely to work
-  const sourcesToCheck = availableSources.slice(0, 3);
-  
-  const results = await Promise.all(
-    sourcesToCheck.map(src => checkSourceHealth(src.url))
-  );
-
-  const workingIndex = results.findIndex(working => working);
-  if (workingIndex !== -1) {
-    return availableSources[workingIndex];
-  }
-  
-  // Fallback to first source if all checks fail (or return opaque false negatives)
-  return availableSources[0];
-};
+import { ScreenOrientation } from '@capacitor/screen-orientation';
+import { Capacitor } from '@capacitor/core';
 
 export const Player: React.FC = () => {
   const { type, id } = useParams<{ type: 'movie' | 'tv'; id: string }>();
@@ -42,7 +15,6 @@ export const Player: React.FC = () => {
   const seasonParam = searchParams.get('season');
   const episodeParam = searchParams.get('episode');
   
-  // Default to Season 1 Episode 1 for TV shows if params are missing
   const season = type === 'tv' && !seasonParam ? '1' : seasonParam;
   const episode = type === 'tv' && !episodeParam ? '1' : episodeParam;
 
@@ -51,7 +23,6 @@ export const Player: React.FC = () => {
   
   const [sources, setSources] = useState<StreamSource[]>([]);
   const [currentSource, setCurrentSource] = useState<StreamSource | null>(null);
-  const [isAutoMode, setIsAutoMode] = useState(true);
   const [media, setMedia] = useState<MediaDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -61,15 +32,107 @@ export const Player: React.FC = () => {
   const [showControls, setShowControls] = useState(true);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isSubtitlesEnabled, setIsSubtitlesEnabled] = useState(false);
-  const [isZoomed, setIsZoomed] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [isBuffering, setIsBuffering] = useState(false);
   const toastTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const touchStartDist = useRef<number | null>(null);
   
   const isEmbed = currentSource?.type === 'embed';
   const { saveProgress, getProgress } = useWatchHistory();
   const isMobile = useIsMobile();
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Double tap refs
+  const lastTapRef = useRef<{ time: number, side: 'left' | 'right' } | null>(null);
+
+  // Refs for data access in event listeners/cleanup
+  const progressRefVal = useRef(0);
+  const mediaRef = useRef<MediaDetails | null>(null);
+  const videoTimeRef = useRef(0);
+  const lastSaveTimeRef = useRef(0);
+
+  useEffect(() => {
+    mediaRef.current = media;
+  }, [media]);
+
+  useEffect(() => {
+    progressRefVal.current = progress;
+  }, [progress]);
+
+  const handleSaveProgress = useCallback(() => {
+    if (!mediaRef.current || videoTimeRef.current <= 0) return;
+    
+    const duration = mediaRef.current.runtime ? mediaRef.current.runtime * 60 : 1800;
+    const finalDuration = videoRef.current?.duration || duration;
+
+    saveProgress(
+      mediaRef.current,
+      videoTimeRef.current,
+      finalDuration,
+      season ? parseInt(season) : undefined,
+      episode ? parseInt(episode) : undefined
+    );
+  }, [season, episode, saveProgress]);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        handleSaveProgress();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('pagehide', handleSaveProgress);
+
+    return () => {
+      handleSaveProgress();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('pagehide', handleSaveProgress);
+    };
+  }, [handleSaveProgress]);
+
+  useEffect(() => {
+    const lockOrientation = async () => {
+      try {
+        await ScreenOrientation.lock({ orientation: 'landscape' });
+      } catch (error) {
+        console.warn('Screen orientation lock failed:', error);
+      }
+    };
+
+    const unlockOrientation = async () => {
+      try {
+        await ScreenOrientation.unlock();
+      } catch (error) {
+        console.warn('Screen orientation unlock failed:', error);
+      }
+    };
+
+    lockOrientation();
+
+    return () => {
+      unlockOrientation();
+    };
+  }, []);
+
+  const handleMouseMove = useCallback(() => {
+    setShowControls(true);
+    if (controlsTimeoutRef.current) {
+      clearTimeout(controlsTimeoutRef.current);
+    }
+    controlsTimeoutRef.current = setTimeout(() => {
+      if (isPlaying && !isSettingsOpen) setShowControls(false);
+    }, 3000);
+  }, [isPlaying, isSettingsOpen]);
+
+  const startAt = React.useMemo(() => {
+      if (!id) return 0;
+      const saved = getProgress(
+        parseInt(id), 
+        season ? parseInt(season) : undefined, 
+        episode ? parseInt(episode) : undefined
+      );
+      return saved ? saved.timestamp : 0;
+  }, [id, season, episode, getProgress]);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -77,53 +140,15 @@ export const Player: React.FC = () => {
     toastTimeoutRef.current = setTimeout(() => setToastMessage(null), 2000);
   };
 
-  const handleTouchStart = (e: React.TouchEvent) => {
-    // Only allow gestures in landscape mode
-    const isLandscape = window.matchMedia("(orientation: landscape)").matches;
-    if (!isLandscape) return;
-
-    if (e.touches.length === 2) {
-      const dist = Math.hypot(
-        e.touches[0].clientX - e.touches[1].clientX,
-        e.touches[0].clientY - e.touches[1].clientY
-      );
-      touchStartDist.current = dist;
-    }
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    // Only allow gestures in landscape mode
-    const isLandscape = window.matchMedia("(orientation: landscape)").matches;
-    if (!isLandscape) return;
-
-    if (e.touches.length === 2 && touchStartDist.current) {
-      const dist = Math.hypot(
-        e.touches[0].clientX - e.touches[1].clientX,
-        e.touches[0].clientY - e.touches[1].clientY
-      );
-      
-      const delta = dist - touchStartDist.current;
-      
-      // Threshold for zoom action (e.g., 50px difference)
-      if (delta > 50 && !isZoomed) {
-        setIsZoomed(true);
-        showToast('Zoomed to fill');
-        touchStartDist.current = null; // Reset to avoid multiple triggers
-      } else if (delta < -50 && isZoomed) {
-        setIsZoomed(false);
-        showToast('Original');
-        touchStartDist.current = null;
-      }
-    }
-  };
-
   const getProcessedUrl = (url: string) => {
     try {
       const urlObj = new URL(url);
-      // 'ds_lang' sets the default subtitle language.
-      // We set it to 'en' when enabled, and a non-existent code 'xx' when disabled
-      // to prevent automatic subtitle selection by the provider.
       urlObj.searchParams.set('ds_lang', isSubtitlesEnabled ? 'en' : 'xx');
+      
+      if (startAt > 0) {
+         return urlObj.toString() + `#t=${Math.floor(startAt)}`;
+      }
+      
       return urlObj.toString();
     } catch (e) {
       return url;
@@ -135,6 +160,39 @@ export const Player: React.FC = () => {
       navigate(`/${type}/${id}`);
     } else {
       navigate('/');
+    }
+  };
+
+  const handlePrevEpisode = () => {
+    const currentSeason = parseInt(season || '1');
+    const currentEpisode = parseInt(episode || '1');
+    
+    if (currentEpisode > 1) {
+      navigate(`/watch/${type}/${id}?season=${currentSeason}&episode=${currentEpisode - 1}`);
+    }
+  };
+
+  const handleNextEpisode = () => {
+    const currentSeason = parseInt(season || '1');
+    const currentEpisode = parseInt(episode || '1');
+    
+    const currentSeasonData = media?.seasons?.find(s => s.season_number === currentSeason);
+    
+    if (currentSeasonData) {
+      if (currentEpisode < currentSeasonData.episode_count) {
+        navigate(`/watch/${type}/${id}?season=${currentSeason}&episode=${currentEpisode + 1}`);
+        return;
+      }
+      
+      const nextSeason = media?.seasons?.find(s => s.season_number === currentSeason + 1);
+      if (nextSeason) {
+        navigate(`/watch/${type}/${id}?season=${currentSeason + 1}&episode=1`);
+        return;
+      }
+      
+      showToast('No more episodes available');
+    } else {
+      navigate(`/watch/${type}/${id}?season=${currentSeason}&episode=${currentEpisode + 1}`);
     }
   };
 
@@ -157,12 +215,11 @@ export const Player: React.FC = () => {
         setMedia({ ...mediaData, media_type: type });
         
         if (sourcesData.sources.length > 0) {
-          if (isAutoMode) {
-             // Find best source
-             const bestSource = await findBestSource(sourcesData.sources);
-             setCurrentSource(bestSource);
+          const preferredSource = sourcesData.sources.find((s: StreamSource) => s.source.includes('VidSrc.cc'));
+          if (preferredSource) {
+            setCurrentSource(preferredSource);
           } else {
-             setCurrentSource(sourcesData.sources[0]);
+            setCurrentSource(sourcesData.sources[0]);
           }
         }
       } catch (error) {
@@ -173,9 +230,8 @@ export const Player: React.FC = () => {
     };
 
     fetchData();
-  }, [type, id, season, episode, isAutoMode]);
+  }, [type, id, season, episode]);
 
-  // Restore progress when video loads
   useEffect(() => {
     if (videoRef.current && id) {
       const savedProgress = getProgress(parseInt(id));
@@ -183,9 +239,8 @@ export const Player: React.FC = () => {
         videoRef.current.currentTime = savedProgress.timestamp;
       }
     }
-  }, [currentSource, id]);
+  }, [currentSource, id, getProgress]);
 
-  // Track progress for embeds (simulated)
   useEffect(() => {
     if (!currentSource || !media || !id || !isEmbed) return;
 
@@ -195,10 +250,11 @@ export const Player: React.FC = () => {
         episode ? parseInt(episode) : undefined
     );
     const startTimestamp = saved ? saved.timestamp : 0;
+    videoTimeRef.current = startTimestamp;
+    
     const startTime = Date.now();
     const duration = media.runtime ? media.runtime * 60 : 1800;
 
-    // Initial save to mark as watching
     saveProgress(
         media, 
         startTimestamp > 0 ? startTimestamp : 1, 
@@ -209,7 +265,8 @@ export const Player: React.FC = () => {
 
     const interval = setInterval(() => {
         const elapsed = (Date.now() - startTime) / 1000;
-        const currentTimestamp = Math.min(startTimestamp + elapsed, duration); // Don't exceed duration
+        const currentTimestamp = Math.min(startTimestamp + elapsed, duration);
+        videoTimeRef.current = currentTimestamp;
         
         saveProgress(
             media,
@@ -218,12 +275,12 @@ export const Player: React.FC = () => {
             season ? parseInt(season) : undefined,
             episode ? parseInt(episode) : undefined
         );
-    }, 10000); // Update every 10s
+    }, 5000);
 
     return () => clearInterval(interval);
-  }, [currentSource, media, id, isEmbed, season, episode]);
+  }, [currentSource, media, id, isEmbed, season, episode, saveProgress, getProgress]);
 
-  const togglePlay = () => {
+  const togglePlay = useCallback(() => {
     if (videoRef.current) {
       if (videoRef.current.paused) {
         videoRef.current.play();
@@ -233,7 +290,16 @@ export const Player: React.FC = () => {
         setIsPlaying(false);
       }
     }
-  };
+  }, []);
+
+  const seekRelative = useCallback((seconds: number) => {
+    if (videoRef.current) {
+      const newTime = videoRef.current.currentTime + seconds;
+      videoRef.current.currentTime = newTime;
+      showToast(`${seconds > 0 ? '+' : ''}${seconds}s`);
+      handleMouseMove();
+    }
+  }, [handleMouseMove]);
 
   const handleTimeUpdate = () => {
     if (videoRef.current && media) {
@@ -242,10 +308,10 @@ export const Player: React.FC = () => {
       const progressPercent = (current / duration) * 100;
       
       setProgress(progressPercent);
+      videoTimeRef.current = current;
       
-      // Save progress every ~1 second (throttling handled by React state updates effectively)
-      // For production, use lodash.throttle or similar
-      if (Math.floor(current) % 5 === 0) {
+      const now = Date.now();
+      if (now - lastSaveTimeRef.current > 5000) {
          saveProgress(
            media, 
            current, 
@@ -253,6 +319,7 @@ export const Player: React.FC = () => {
            season ? parseInt(season) : undefined,
            episode ? parseInt(episode) : undefined
          );
+         lastSaveTimeRef.current = now;
       }
     }
   };
@@ -280,37 +347,80 @@ export const Player: React.FC = () => {
     }
   };
 
-  const handleMouseMove = () => {
-    setShowControls(true);
-    if (controlsTimeoutRef.current) {
-      clearTimeout(controlsTimeoutRef.current);
-    }
-    controlsTimeoutRef.current = setTimeout(() => {
-      if (isPlaying) setShowControls(false);
-    }, 3000);
-  };
-
-  const handleInteraction = () => {
-    if (isMobile) {
-      // Toggle controls on mobile tap
-      if (showControls) {
-         // If playing, hide immediately? Or let timeout handle it? 
-         // Standard behavior: tap to show, tap to hide. 
-         // But here we want to ensure they hide eventually.
-         // If we toggle off, clear timeout.
-         setShowControls(false);
-         if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
-      } else {
-        setShowControls(true);
-        // Set timeout to auto-hide
-        if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
-        controlsTimeoutRef.current = setTimeout(() => {
-          if (isPlaying) setShowControls(false);
-        }, 3000);
+  // Keyboard Shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (isEmbed) return;
+      
+      switch(e.key) {
+        case ' ':
+        case 'k':
+        case 'K':
+          e.preventDefault();
+          togglePlay();
+          break;
+        case 'ArrowLeft':
+          e.preventDefault();
+          seekRelative(-10);
+          break;
+        case 'ArrowRight':
+          e.preventDefault();
+          seekRelative(10);
+          break;
+        case 'ArrowUp':
+          e.preventDefault();
+          if (videoRef.current) {
+            const newVol = Math.min(videoRef.current.volume + 0.1, 1);
+            videoRef.current.volume = newVol;
+            setVolume(newVol);
+            showToast(`Volume: ${Math.round(newVol * 100)}%`);
+          }
+          break;
+        case 'ArrowDown':
+          e.preventDefault();
+          if (videoRef.current) {
+            const newVol = Math.max(videoRef.current.volume - 0.1, 0);
+            videoRef.current.volume = newVol;
+            setVolume(newVol);
+            showToast(`Volume: ${Math.round(newVol * 100)}%`);
+          }
+          break;
+        case 'f':
+        case 'F':
+          e.preventDefault();
+          toggleFullscreen();
+          break;
+        case 'm':
+        case 'M':
+          e.preventDefault();
+          toggleMute();
+          break;
+        case 'Escape':
+          if (showControls) {
+             // Maybe go back?
+          } else {
+             setShowControls(true);
+          }
+          break;
       }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [togglePlay, seekRelative, isEmbed, showControls]);
+
+  const handleDoubleTap = (side: 'left' | 'right') => {
+    const now = Date.now();
+    if (lastTapRef.current && 
+        now - lastTapRef.current.time < 300 && 
+        lastTapRef.current.side === side) {
+      // Double tap detected
+      seekRelative(side === 'left' ? -10 : 10);
+      lastTapRef.current = null;
     } else {
-       // Desktop: just trigger show (mouse move handles this usually, but click should too)
-       handleMouseMove();
+      lastTapRef.current = { time: now, side };
+      // Single tap logic (toggle controls) could go here if we want to distinguish
+      // but simpler to just handle click on wrapper
     }
   };
 
@@ -329,7 +439,7 @@ export const Player: React.FC = () => {
         <p className="mb-4">No sources found for this content.</p>
         <button 
           onClick={handleBack}
-          className="bg-primary px-6 py-2 rounded font-bold"
+          className="bg-primary px-6 py-2 rounded font-bold transition-transform hover:scale-105"
         >
           Go Back
         </button>
@@ -341,12 +451,13 @@ export const Player: React.FC = () => {
 
   return (
     <div 
-      className="fixed inset-0 bg-black z-[100] flex items-center justify-center overflow-hidden group"
+      className="fixed inset-0 bg-black z-[100] flex items-center justify-center overflow-hidden group select-none"
       onMouseMove={handleMouseMove}
-      onClick={handleInteraction}
+      onClick={() => {
+        setShowControls(!showControls);
+        handleMouseMove(); // reset timer
+      }}
       onMouseLeave={() => isPlaying && setShowControls(false)}
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
     >
       {/* Ambient Mode Background */}
       {media?.backdrop_path && (
@@ -368,36 +479,66 @@ export const Player: React.FC = () => {
         {toastMessage}
       </div>
 
+      {/* Loading Spinner */}
+      {isBuffering && !isEmbed && (
+        <div className="absolute inset-0 flex items-center justify-center z-40 pointer-events-none">
+          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-primary"></div>
+        </div>
+      )}
+
+      {/* Double Tap Zones (Mobile/Touch) */}
+      <div 
+        className="absolute inset-y-0 left-0 w-1/4 z-30"
+        onClick={(e) => {
+            e.stopPropagation();
+            handleDoubleTap('left');
+        }}
+      />
+      <div 
+        className="absolute inset-y-0 right-0 w-1/4 z-30"
+        onClick={(e) => {
+            e.stopPropagation();
+            handleDoubleTap('right');
+        }}
+      />
+
       {isEmbed ? (
-        <div className={`w-full h-full relative z-10 transition-transform duration-300 ${isZoomed ? 'scale-125' : 'scale-100'}`}>
+        <div className="w-full h-full relative z-10">
             <iframe
-            src={getProcessedUrl(currentSource.url)}
-            className="w-full h-full border-0"
-            allowFullScreen
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-            referrerPolicy="no-referrer"
+                src={getProcessedUrl(currentSource.url)}
+                className="w-full h-full border-0 pointer-events-auto"
+                allowFullScreen
+                {...(currentSource.source.toLowerCase().includes('vidsrc.cc') || currentSource.url.includes('vidsrc.cc') 
+                ? { sandbox: "allow-forms allow-scripts allow-same-origin allow-presentation" } 
+                : {}
+                )}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                referrerPolicy="no-referrer"
             />
         </div>
       ) : (
         <video
           ref={videoRef}
           src={currentSource.url}
-          className={`w-full h-full relative z-10 shadow-2xl transition-all duration-300 ${isZoomed ? 'object-cover' : 'object-contain'}`}
+          className="w-full h-full relative z-10 shadow-2xl transition-all duration-300 object-contain"
           autoPlay
           onTimeUpdate={handleTimeUpdate}
           onPlay={() => setIsPlaying(true)}
           onPause={() => setIsPlaying(false)}
-          // onClick is handled by container
+          onWaiting={() => setIsBuffering(true)}
+          onPlaying={() => setIsBuffering(false)}
+          onCanPlay={() => setIsBuffering(false)}
         />
       )}
 
       {/* Controls Overlay */}
+      {!isEmbed && (
       <div 
-        className={`absolute inset-0 pointer-events-none transition-opacity duration-300 z-20 ${showControls ? 'opacity-100' : 'opacity-0'}`}
+        className={`absolute inset-0 pointer-events-none transition-opacity duration-300 z-40 ${showControls ? 'opacity-100' : 'opacity-0'}`}
       >
         {/* Top Bar */}
         <div 
-          className="absolute top-0 left-0 right-0 p-6 flex justify-between items-center pointer-events-auto bg-gradient-to-b from-black/90 to-transparent"
+          className={`absolute top-0 left-0 right-0 p-6 flex justify-between items-center bg-gradient-to-b from-black/90 to-transparent ${showControls ? 'pointer-events-auto' : 'pointer-events-none'}`}
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex items-center gap-4">
@@ -418,7 +559,26 @@ export const Player: React.FC = () => {
           </div>
           
           <div className="flex gap-4 relative pointer-events-auto">
-
+            {type === 'tv' && (
+              <>
+                {parseInt(episode || '1') > 1 && (
+                  <button 
+                    onClick={handlePrevEpisode}
+                    className="text-white hover:text-primary transition-colors bg-white/10 p-3 rounded-full backdrop-blur-md hover:bg-white/20"
+                    title="Previous Episode"
+                  >
+                    <SkipBack size={24} />
+                  </button>
+                )}
+                <button 
+                  onClick={handleNextEpisode}
+                  className="text-white hover:text-primary transition-colors bg-white/10 p-3 rounded-full backdrop-blur-md hover:bg-white/20"
+                  title="Next Episode"
+                >
+                  <SkipForward size={24} />
+                </button>
+              </>
+            )}
 
             <button 
               onClick={() => setIsSettingsOpen(!isSettingsOpen)}
@@ -431,36 +591,14 @@ export const Player: React.FC = () => {
               <div className="absolute top-full right-0 mt-2 bg-[#181818] border border-white/10 rounded-xl p-2 min-w-[200px] block shadow-2xl">
                 <h4 className="text-xs text-gray-500 mb-2 px-3 py-1 uppercase font-bold tracking-wider">Select Source</h4>
                 
-                {/* Auto Option */}
-                <button
-                  onClick={async () => {
-                    setIsAutoMode(true);
-                    setIsSettingsOpen(false);
-                    // Re-run best source finder
-                    const best = await findBestSource(sources);
-                    setCurrentSource(best);
-                  }}
-                  className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors mb-1 ${isAutoMode ? 'bg-primary/20 text-primary' : 'text-gray-300 hover:bg-white/5'}`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span>Auto (Recommended)</span>
-                    {isAutoMode && <span className="text-xs bg-primary px-1.5 py-0.5 rounded text-black font-bold">ON</span>}
-                  </div>
-                  {isAutoMode && currentSource && (
-                    <div className="text-xs opacity-60 mt-1 truncate">Using: {currentSource.source}</div>
-                  )}
-                </button>
-                <div className="h-px bg-white/10 my-2 mx-2" />
-
                 {sources.map((src, idx) => (
                   <button
                     key={idx}
                     onClick={() => {
                       setCurrentSource(src);
-                      setIsAutoMode(false);
                       setIsSettingsOpen(false);
                     }}
-                    className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${currentSource === src && !isAutoMode ? 'bg-primary/20 text-primary' : 'text-gray-300 hover:bg-white/5'}`}
+                    className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${currentSource === src ? 'bg-primary/20 text-primary' : 'text-gray-300 hover:bg-white/5'}`}
                   >
                     {src.source}
                   </button>
@@ -471,8 +609,7 @@ export const Player: React.FC = () => {
         </div>
 
         {/* Bottom Bar - Only for native video player */}
-        {!isEmbed && (
-          <div className="absolute bottom-0 left-0 right-0 p-8 pointer-events-auto bg-gradient-to-t from-black/90 via-black/60 to-transparent">
+        <div className={`absolute bottom-0 left-0 right-0 p-8 bg-gradient-to-t from-black/90 via-black/60 to-transparent ${showControls ? 'pointer-events-auto' : 'pointer-events-none'}`} onClick={(e) => e.stopPropagation()}>
             {/* Progress Bar */}
             <div className="w-full mb-6 flex items-center gap-4 group/progress">
               <div className="relative w-full h-1 bg-white/20 rounded-full cursor-pointer group-hover/progress:h-2 transition-all">
@@ -497,6 +634,21 @@ export const Player: React.FC = () => {
                   {isPlaying ? <Pause size={40} fill="currentColor" /> : <Play size={40} fill="currentColor" />}
                 </button>
                 
+                <button 
+                    onClick={() => seekRelative(-10)} 
+                    className="text-white hover:text-primary transition-colors"
+                    title="-10s"
+                >
+                    <RotateCcw size={24} />
+                </button>
+                <button 
+                    onClick={() => seekRelative(10)} 
+                    className="text-white hover:text-primary transition-colors"
+                    title="+10s"
+                >
+                    <RotateCw size={24} />
+                </button>
+
                 <div className="flex items-center gap-4 group/vol">
                   <button onClick={toggleMute} className="text-white hover:text-primary transition-colors">
                     {isMuted ? <VolumeX size={28} /> : <Volume2 size={28} />}
@@ -527,8 +679,8 @@ export const Player: React.FC = () => {
               </div>
             </div>
           </div>
-        )}
       </div>
+      )}
     </div>
   );
 };

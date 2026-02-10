@@ -1,8 +1,14 @@
-const API_BASE_URL = '/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
 export const api = {
   getTrending: async (timeWindow: 'day' | 'week' = 'day', page: number = 1) => {
     const res = await fetch(`${API_BASE_URL}/trending?timeWindow=${timeWindow}&page=${page}`);
+    if (!res.ok) throw new Error('API Request Failed');
+    return res.json();
+  },
+
+  getUpcoming: async (page: number = 1) => {
+    const res = await fetch(`${API_BASE_URL}/upcoming?page=${page}`);
     if (!res.ok) throw new Error('API Request Failed');
     return res.json();
   },

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { useParams, Link, useLocation, useNavigate } from 'react-router-dom';
+import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { Play, Star, Calendar, Clock, Share2, ChevronDown, Check, Youtube, Plus, Shuffle } from 'lucide-react';
 import { api } from '../lib/api';
 import { MediaDetails, Episode } from '../types';
@@ -8,6 +8,8 @@ import { MediaRow } from '../components/MediaRow';
 import { useMyList } from '../hooks/useMyList';
 import { useWatchHistory } from '../hooks/useWatchHistory';
 import { TrailerModal } from '../components/TrailerModal';
+import { FocusableButton } from '../components/FocusableButton';
+import { FocusableLink } from '../components/FocusableLink';
 
 export const Details: React.FC = () => {
   const { type, id } = useParams<{ type: 'movie' | 'tv'; id: string }>();
@@ -197,7 +199,75 @@ export const Details: React.FC = () => {
     v => v.site === 'YouTube' && v.type === 'Trailer'
   );
 
+  const CastMember: React.FC<{ person: any }> = ({ person }) => {
+    return (
+      <div 
+        tabIndex={0}
+        className="flex-none w-24 text-center transition-transform duration-200 hover:scale-110 z-10"
+      >
+        <div className="w-20 h-20 mx-auto rounded-full overflow-hidden mb-2 bg-surface">
+          {person.profile_path ? (
+            <img
+              src={getImageUrl(person.profile_path, 'w500')}
+              alt={person.name}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-xs text-gray-500">No Image</div>
+          )}
+        </div>
+        <p className="text-xs font-medium truncate text-white">{person.name}</p>
+        <p className="text-xs text-gray-400 truncate">{person.character}</p>
+      </div>
+    );
+  };
 
+  const SeasonSelector: React.FC<{ 
+    seasons: any[], 
+    selectedSeason: number, 
+    onSelect: (s: number) => void 
+  }> = ({ seasons, selectedSeason, onSelect }) => {
+    const [isOpen, setIsOpen] = useState(false);
+
+    return (
+      <div className="relative z-50">
+        <button
+          onClick={() => setIsOpen(!isOpen)}
+          className="flex items-center gap-2 bg-surface text-white px-4 py-2 pr-8 rounded appearance-none cursor-pointer outline-none transition-all hover:bg-white/10"
+        >
+           <span>{seasons.find(s => s.season_number === selectedSeason)?.name || 'Select Season'}</span>
+           <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" size={16} />
+        </button>
+
+        {isOpen && (
+          <div className="absolute top-full right-0 mt-2 bg-surface border border-white/10 rounded-lg shadow-xl max-h-60 overflow-y-auto w-64">
+            {seasons.map(season => (
+              <SeasonOption 
+                key={season.id} 
+                season={season} 
+                isSelected={season.season_number === selectedSeason}
+                onSelect={() => {
+                  onSelect(season.season_number);
+                  setIsOpen(false);
+                }} 
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const SeasonOption: React.FC<{ season: any, isSelected: boolean, onSelect: () => void }> = ({ season, isSelected, onSelect }) => {
+    return (
+      <button
+        onClick={onSelect}
+        className={`w-full text-left px-4 py-3 text-sm transition-colors ${isSelected ? 'text-primary font-bold' : 'text-white'} hover:bg-white/5`}
+      >
+        {season.name}
+      </button>
+    );
+  };
 
   return (
     <div className="pb-20">
@@ -259,49 +329,49 @@ export const Details: React.FC = () => {
             </div>
 
             <div className="flex flex-wrap gap-4 mb-8">
-              <Link
+              <FocusableLink
                 to={resumeLink}
-                className="bg-primary text-white px-8 py-3 rounded font-bold flex items-center gap-2 hover:bg-red-700 transition-colors shadow-lg shadow-primary/20"
+                className="bg-primary text-white px-6 py-2.5 rounded font-bold flex items-center gap-2 hover:bg-red-700 transition-colors shadow-lg shadow-primary/20"
               >
                 <Play size={20} fill="currentColor" />
                 {resumeLabel}
-              </Link>
+              </FocusableLink>
               
               {trailer && (
-                <button
+                <FocusableButton
                   onClick={() => setIsTrailerOpen(true)}
-                  className="bg-white/10 text-white px-6 py-3 rounded font-bold flex items-center gap-2 hover:bg-white/20 transition-colors"
+                  className="bg-white/10 text-white px-5 py-2.5 rounded font-bold flex items-center gap-2 hover:bg-white/20 transition-colors"
                 >
                   <Youtube size={20} />
                   Trailer
-                </button>
+                </FocusableButton>
               )}
 
-              <button 
+              <FocusableButton 
                 onClick={handleToggleList}
-                className="bg-white/10 text-white px-6 py-3 rounded font-bold flex items-center gap-2 hover:bg-white/20 transition-colors"
+                className="bg-white/10 text-white px-5 py-2.5 rounded font-bold flex items-center gap-2 hover:bg-white/20 transition-colors"
               >
                 {inList ? <Check size={20} /> : <Plus size={20} />}
                 {inList ? 'In List' : 'Add to List'}
-              </button>
+              </FocusableButton>
 
-              <button 
+              <FocusableButton 
                 onClick={handleShare}
-                className="bg-white/10 text-white px-6 py-3 rounded font-bold flex items-center gap-2 hover:bg-white/20 transition-colors"
+                className="bg-white/10 text-white px-5 py-2.5 rounded font-bold flex items-center gap-2 hover:bg-white/20 transition-colors"
               >
                 {isShared ? <Check size={20} /> : <Share2 size={20} />}
                 {isShared ? 'Copied!' : 'Share'}
-              </button>
+              </FocusableButton>
 
               {location.state?.fromSurprise && (
-                <button 
+                <FocusableButton 
                   onClick={handleSurprise}
                   className="bg-primary text-white p-3 rounded-full hover:bg-red-700 transition-all shadow-lg hover:shadow-primary/30 group relative overflow-hidden"
                   title="Shuffle"
                 >
                   <span className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></span>
                   <Shuffle size={24} className="group-hover:rotate-180 transition-transform duration-500" />
-                </button>
+                </FocusableButton>
               )}
             </div>
 
@@ -313,23 +383,11 @@ export const Details: React.FC = () => {
             {media.credits?.cast?.length > 0 && (
               <div className="mb-8">
                 <h3 className="text-xl font-bold text-white mb-4">Cast</h3>
-                <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide">
+                <div 
+                  className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide px-1"
+                >
                   {media.credits.cast.slice(0, 10).map(person => (
-                    <div key={person.id} className="flex-none w-24 text-center">
-                      <div className="w-20 h-20 mx-auto rounded-full overflow-hidden mb-2 bg-surface">
-                        {person.profile_path ? (
-                          <img
-                            src={getImageUrl(person.profile_path, 'w500')}
-                            alt={person.name}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-xs text-gray-500">No Image</div>
-                        )}
-                      </div>
-                      <p className="text-xs font-medium text-white truncate">{person.name}</p>
-                      <p className="text-xs text-gray-400 truncate">{person.character}</p>
-                    </div>
+                    <CastMember key={person.id} person={person} />
                   ))}
                 </div>
               </div>
@@ -340,20 +398,11 @@ export const Details: React.FC = () => {
               <div className="mb-8">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-xl font-bold text-white">Episodes</h3>
-                  <div className="relative">
-                    <select 
-                      value={selectedSeason}
-                      onChange={(e) => setSelectedSeason(parseInt(e.target.value))}
-                      className="bg-surface text-white px-4 py-2 pr-8 rounded appearance-none cursor-pointer outline-none focus:ring-2 focus:ring-primary"
-                    >
-                      {media.seasons.map(season => (
-                        <option key={season.id} value={season.season_number}>
-                          {season.name}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" size={16} />
-                  </div>
+                  <SeasonSelector 
+                    seasons={media.seasons} 
+                    selectedSeason={selectedSeason} 
+                    onSelect={setSelectedSeason} 
+                  />
                 </div>
 
                 <div className="space-y-4">
@@ -372,18 +421,18 @@ export const Details: React.FC = () => {
                         )}
                         
                         <div className="flex-none w-32 md:w-48 aspect-video rounded overflow-hidden relative">
-                          <img 
-                            src={getImageUrl(episode.still_path, 'w500')} 
-                            alt={episode.name}
-                            className="w-full h-full object-cover"
-                          />
-                          <Link 
-                            to={`/watch/tv/${id}?season=${selectedSeason}&episode=${episode.episode_number}`}
-                            className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                          >
-                            <Play size={32} className="text-white" fill="currentColor" />
-                          </Link>
-                        </div>
+                            <img 
+                              src={getImageUrl(episode.still_path, 'w500')} 
+                              alt={episode.name}
+                              className="w-full h-full object-cover"
+                            />
+                            <FocusableLink 
+                              to={`/watch/tv/${id}?season=${selectedSeason}&episode=${episode.episode_number}`}
+                              className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
+                            >
+                              <Play size={32} className="text-white" fill="currentColor" />
+                            </FocusableLink>
+                          </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start justify-between gap-4 mb-2">
                             <div>

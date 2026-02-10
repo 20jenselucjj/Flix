@@ -1,5 +1,5 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Star, X } from 'lucide-react';
 import { Media } from '../types';
@@ -13,28 +13,34 @@ interface MediaCardProps {
     episode?: number;
   };
   onRemove?: (id: number) => void;
+  onImageError?: (id: number) => void;
 }
 
-export const MediaCard: React.FC<MediaCardProps> = ({ media, onRemove }) => {
+export const MediaCard: React.FC<MediaCardProps> = ({ media, onRemove, onImageError }) => {
   const isMobile = useIsMobile();
-  
+  const navigate = useNavigate();
+
   const title = media.title || media.name;
   const type = media.media_type || (media.title ? 'movie' : 'tv');
 
+  if (!media.poster_path) return null;
+
   return (
     <motion.div 
-      className="relative aspect-[2/3] group cursor-pointer"
+      className="relative aspect-[2/3] group cursor-pointer outline-none rounded-md transition-all duration-200"
       whileHover={{ scale: 1.05 }}
       whileTap={isMobile ? { scale: 0.95 } : undefined}
       transition={{ duration: 0.2 }}
+      onClick={() => navigate(`/${type}/${media.id}`)}
     >
-      <Link to={`/${type}/${media.id}`} className="block w-full h-full">
+      <div className="block w-full h-full">
         <div className="w-full h-full rounded-md overflow-hidden bg-surface shadow-lg relative">
           <img
             src={getImageUrl(media.poster_path)}
             alt={title}
             className="w-full h-full object-cover"
             loading="lazy"
+            onError={() => onImageError?.(media.id)}
           />
           
           {/* Season/Episode Badge */}
@@ -68,7 +74,7 @@ export const MediaCard: React.FC<MediaCardProps> = ({ media, onRemove }) => {
             </div>
           )}
         </div>
-      </Link>
+      </div>
 
       {onRemove && (
         <button

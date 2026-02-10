@@ -11,6 +11,7 @@ body {
   background-image: linear-gradient(to bottom, #141414, #000000);
   min-height: 100vh;
   overflow-x: hidden;
+  touch-action: pan-x pan-y; /* Prevent double-tap zoom and pinch-zoom behavior where supported */
 }
 
 /* Custom scrollbar */
@@ -28,4 +29,14 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
   @apply bg-zinc-600;
+}
+
+/* Focus Management */
+*:focus {
+  outline: none;
+}
+
+/* Ensure focus visibility for keyboard/remote users */
+:focus-visible {
+  @apply ring-2 ring-white ring-offset-2 ring-offset-black;
 }

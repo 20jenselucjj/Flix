@@ -1,6 +1,6 @@
 export const scraperService = {
   getStreams: async (tmdbId: number, type: 'movie' | 'tv', season: number = 1, episode: number = 1) => {
-    // Using a curated list of reliable public embed APIs for 2025/2026.
+    // Using user-provided list of Vidsrc domains.
     // These services take TMDB IDs and return embeddable players.
     
     const sources = [];
@@ -15,44 +15,38 @@ export const scraperService = {
         },
         {
           quality: 'HD',
-          url: `https://vidsrc.xyz/embed/movie?tmdb=${tmdbId}`,
-          source: 'VidSrc.xyz',
+          url: `https://vidsrcme.ru/embed/movie/${tmdbId}`,
+          source: 'VidSrcMe.ru',
           type: 'embed'
         },
         {
           quality: 'HD',
-          url: `https://moviesapi.club/movie/${tmdbId}`,
-          source: 'MoviesAPI.club',
+          url: `https://vidsrcme.su/embed/movie/${tmdbId}`,
+          source: 'VidSrcMe.su',
           type: 'embed'
         },
         {
           quality: 'HD',
-          url: `https://vidsrc.to/embed/movie/${tmdbId}`,
-          source: 'VidSrc.to',
+          url: `https://vidsrc-me.ru/embed/movie/${tmdbId}`,
+          source: 'VidSrc-Me.ru',
           type: 'embed'
         },
         {
           quality: 'HD',
-          url: `https://player.autoembed.cc/embed/movie/${tmdbId}`,
-          source: 'AutoEmbed',
+          url: `https://vidsrc-me.su/embed/movie/${tmdbId}`,
+          source: 'VidSrc-Me.su',
           type: 'embed'
         },
         {
           quality: 'HD',
-          url: `https://player.smashy.stream/movie/${tmdbId}`,
-          source: 'SmashyStream',
+          url: `https://vidsrc-embed.ru/embed/movie/${tmdbId}`,
+          source: 'VidSrc-Embed.ru',
           type: 'embed'
         },
         {
           quality: 'HD',
-          url: `https://multiembed.mov/?video_id=${tmdbId}&tmdb=1`,
-          source: 'MultiEmbed',
-          type: 'embed'
-        },
-        {
-          quality: 'HD',
-          url: `https://vidsrc.vip/embed/movie/${tmdbId}`,
-          source: 'VidSrc.vip',
+          url: `https://vidsrc-embed.su/embed/movie/${tmdbId}`,
+          source: 'VidSrc-Embed.su',
           type: 'embed'
         }
       );
@@ -60,44 +54,44 @@ export const scraperService = {
       sources.push(
         {
           quality: 'HD',
-          url: `https://vidsrc.cc/v2/embed/tv/${tmdbId}/${season}/${episode}`,
+          url: `https://vidsrc.cc/v2/embed/tv/${tmdbId}/${season}/${episode}?autonext=1`,
           source: `VidSrc.cc (S${season} E${episode})`,
           type: 'embed'
         },
         {
           quality: 'HD',
-          url: `https://vidsrc.xyz/embed/tv?tmdb=${tmdbId}&season=${season}&episode=${episode}`,
-          source: `VidSrc.xyz (S${season} E${episode})`,
+          url: `https://vidsrcme.ru/embed/tv/${tmdbId}/${season}/${episode}?autonext=1`,
+          source: `VidSrcMe.ru (S${season} E${episode})`,
           type: 'embed'
         },
         {
           quality: 'HD',
-          url: `https://moviesapi.club/tv/${tmdbId}-${season}-${episode}`,
-          source: `MoviesAPI.club (S${season} E${episode})`,
+          url: `https://vidsrcme.su/embed/tv/${tmdbId}/${season}/${episode}?autonext=1`,
+          source: `VidSrcMe.su (S${season} E${episode})`,
           type: 'embed'
         },
         {
           quality: 'HD',
-          url: `https://vidsrc.to/embed/tv/${tmdbId}/${season}/${episode}`,
-          source: `VidSrc.to (S${season} E${episode})`,
+          url: `https://vidsrc-me.ru/embed/tv/${tmdbId}/${season}/${episode}?autonext=1`,
+          source: `VidSrc-Me.ru (S${season} E${episode})`,
           type: 'embed'
         },
         {
           quality: 'HD',
-          url: `https://player.autoembed.cc/embed/tv/${tmdbId}/${season}/${episode}`,
-          source: `AutoEmbed (S${season} E${episode})`,
+          url: `https://vidsrc-me.su/embed/tv/${tmdbId}/${season}/${episode}?autonext=1`,
+          source: `VidSrc-Me.su (S${season} E${episode})`,
           type: 'embed'
         },
         {
           quality: 'HD',
-          url: `https://player.smashy.stream/tv/${tmdbId}?s=${season}&e=${episode}`,
-          source: `SmashyStream (S${season} E${episode})`,
+          url: `https://vidsrc-embed.ru/embed/tv/${tmdbId}/${season}/${episode}?autonext=1`,
+          source: `VidSrc-Embed.ru (S${season} E${episode})`,
           type: 'embed'
         },
         {
           quality: 'HD',
-          url: `https://vidsrc.vip/embed/tv/${tmdbId}/${season}/${episode}`,
-          source: `VidSrc.vip (S${season} E${episode})`,
+          url: `https://vidsrc-embed.su/embed/tv/${tmdbId}/${season}/${episode}?autonext=1`,
+          source: `VidSrc-Embed.su (S${season} E${episode})`,
           type: 'embed'
         }
       );

@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ChevronDown, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { FocusableButton } from './FocusableButton';
 
 interface FilterBarProps {
   sortBy: string;
@@ -35,13 +36,13 @@ export const FilterBar: React.FC<FilterBarProps> = ({ sortBy, onSortChange, type
     <div className="flex items-center space-x-3 relative z-40" ref={dropdownRef}>
       <span className="text-gray-400 text-sm font-medium hidden md:inline">Sort By:</span>
       <div className="relative">
-        <button
+        <FocusableButton
           onClick={() => setIsOpen(!isOpen)}
           className="flex items-center space-x-2 bg-white/10 hover:bg-white/20 border border-white/10 rounded-full px-4 py-2 text-sm font-medium text-white transition-all duration-200 backdrop-blur-sm"
         >
           <span>{selectedOption.label}</span>
           <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
-        </button>
+        </FocusableButton>
 
         <AnimatePresence>
           {isOpen && (
@@ -53,7 +54,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({ sortBy, onSortChange, type
               className="absolute right-0 mt-2 w-48 py-2 bg-[#1a1a1a]/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-xl overflow-hidden z-50"
             >
               {options.map((option) => (
-                <button
+                <FocusableButton
                   key={option.value}
                   onClick={() => {
                     onSortChange(option.value);
@@ -65,7 +66,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({ sortBy, onSortChange, type
                   {sortBy === option.value && (
                     <Check className="w-4 h-4 text-primary" />
                   )}
-                </button>
+                </FocusableButton>
               ))}
             </motion.div>
           )}

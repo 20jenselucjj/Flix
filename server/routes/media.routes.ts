@@ -4,6 +4,7 @@ import { mediaController } from '../controllers/media.controller.js';
 const router = Router();
 
 router.get('/trending', mediaController.getTrending);
+router.get('/upcoming', mediaController.getUpcoming);
 router.get('/popular/:type', mediaController.getPopular);
 router.get('/search', mediaController.search);
 router.get('/genres/:type', mediaController.getGenres);

@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Search, Film, Tv, Home, Plus, Menu, X, ChevronDown, Download, Clapperboard } from 'lucide-react';
+import { Search, Film, Tv, Home, Plus, Menu, X, ChevronDown, Download, Clapperboard, Calendar } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Capacitor } from '@capacitor/core';
 import { api } from '../lib/api';
 import { Genre } from '../types';
+import { FocusableLink } from './FocusableLink';
 
 export const Navbar: React.FC = () => {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -12,9 +14,12 @@ export const Navbar: React.FC = () => {
   const [movieGenres, setMovieGenres] = useState<Genre[]>([]);
   const [tvGenres, setTvGenres] = useState<Genre[]>([]);
   const [isGenreMenuOpen, setIsGenreMenuOpen] = useState(false);
+  const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
   const [installPrompt, setInstallPrompt] = useState<any>(null);
   const navigate = useNavigate();
   const location = useLocation();
+
+  const isNative = Capacitor.isNativePlatform();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -43,7 +48,9 @@ export const Navbar: React.FC = () => {
     }
     fetchGenres();
 
-    return () => window.removeEventListener('scroll', handleScroll);
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+    };
   }, []);
 
   const handleInstallClick = async () => {
@@ -56,7 +63,7 @@ export const Navbar: React.FC = () => {
   };
 
   const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
+    if (e && e.preventDefault) e.preventDefault();
     if (searchQuery.trim()) {
       navigate(`/search?q=${encodeURIComponent(searchQuery)}`);
       setIsMobileMenuOpen(false);
@@ -71,19 +78,20 @@ export const Navbar: React.FC = () => {
     >
       <div className="container mx-auto px-4 h-20 flex items-center justify-between">
         <div className="flex items-center gap-12">
-          <Link to="/" className="hover:scale-105 transition-transform">
+          <FocusableLink to="/" className="hover:scale-105 transition-transform">
             <img src="/F192.png" alt="FLIX" className="h-10 w-auto object-contain" />
-          </Link>
+          </FocusableLink>
           <nav className="hidden md:flex items-center gap-8">
             <NavLink to="/" label="Home" active={location.pathname === '/'} />
             <NavLink to="/shorts" label="Shorts" active={location.pathname === '/shorts'} />
             
             <div 
                 className="relative group h-20 flex items-center" 
-                onMouseEnter={() => setIsGenreMenuOpen(true)} 
-                onMouseLeave={() => setIsGenreMenuOpen(false)}
             >
-                <button className={`flex items-center gap-1 text-sm font-medium transition-colors hover:text-white ${isGenreMenuOpen ? 'text-white' : 'text-gray-400'}`}>
+                <button 
+                  onClick={() => setIsGenreMenuOpen(!isGenreMenuOpen)}
+                  className={`flex items-center gap-1 text-sm font-medium transition-colors hover:text-white outline-none ${isGenreMenuOpen ? 'text-white' : 'text-gray-400'}`}
+                >
                     Categories <ChevronDown size={14} className={`transition-transform duration-300 ${isGenreMenuOpen ? 'rotate-180' : ''}`} />
                 </button>
                 <AnimatePresence>
@@ -92,16 +100,16 @@ export const Navbar: React.FC = () => {
                             initial={{ opacity: 0, y: 10 }}
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: 10 }}
-                            className="absolute top-full left-0 w-[500px] bg-[#141414] border border-white/10 rounded-lg shadow-xl p-6 grid grid-cols-2 gap-x-8 gap-y-2 z-50"
+                            className="absolute top-full -left-48 w-[600px] bg-[#141414] border border-white/10 rounded-lg shadow-xl p-6 grid grid-cols-2 gap-x-8 gap-y-2 z-50"
                         >
                             <div>
                                 <h3 className="text-white font-bold mb-3 border-b border-white/10 pb-2 flex items-center gap-2">
                                     <Film size={16} className="text-primary" /> Movies
                                 </h3>
-                                <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-                                    <Link to="/movies" className="text-primary hover:text-white text-xs block py-1 font-bold col-span-2">All Movies</Link>
+                                <div className="grid grid-cols-2 gap-x-2 gap-y-1">
+                                    <MenuLink to="/movies" className="col-span-2 text-primary font-bold">All Movies</MenuLink>
                                     {movieGenres.slice(0, 14).map(g => (
-                                         <Link key={g.id} to={`/genre/movie/${g.id}`} className="text-gray-400 hover:text-white text-xs block py-1 truncate">{g.name}</Link>
+                                         <MenuLink key={g.id} to={`/genre/movie/${g.id}`}>{g.name}</MenuLink>
                                     ))}
                                 </div>
                             </div>
@@ -109,10 +117,10 @@ export const Navbar: React.FC = () => {
                                 <h3 className="text-white font-bold mb-3 border-b border-white/10 pb-2 flex items-center gap-2">
                                     <Tv size={16} className="text-primary" /> TV Shows
                                 </h3>
-                                <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-                                     <Link to="/tv" className="text-primary hover:text-white text-xs block py-1 font-bold col-span-2">All TV Shows</Link>
+                                <div className="grid grid-cols-2 gap-x-2 gap-y-1">
+                                     <MenuLink to="/tv" className="col-span-2 text-primary font-bold">All TV Shows</MenuLink>
                                      {tvGenres.slice(0, 14).map(g => (
-                                         <Link key={g.id} to={`/genre/tv/${g.id}`} className="text-gray-400 hover:text-white text-xs block py-1 truncate">{g.name}</Link>
+                                         <MenuLink key={g.id} to={`/genre/tv/${g.id}`}>{g.name}</MenuLink>
                                     ))}
                                 </div>
                             </div>
@@ -123,37 +131,65 @@ export const Navbar: React.FC = () => {
 
             <NavLink to="/my-list" label="My List" active={location.pathname === '/my-list'} />
             
-            {installPrompt && (
-              <button
-                onClick={handleInstallClick}
-                className="flex items-center gap-2 bg-primary/20 hover:bg-primary/40 text-primary px-3 py-1.5 rounded-full transition-colors text-sm font-bold border border-primary/20"
-              >
-                <Download size={14} />
-                Install App
-              </button>
-            )}
+            {/* Download APK Button */}
+            {!isNative && <DownloadApkButton />}
           </nav>
         </div>
 
         <div className="flex items-center gap-6">
           <form onSubmit={handleSearch} className="relative hidden md:block group">
             <input
-              type="text"
+              type="search"
+              inputMode="search"
+              enterKeyHint="search"
+              autoComplete="off"
               placeholder="Titles, people, genres"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="bg-black/40 border border-white/10 rounded-full py-2 pl-10 pr-4 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all w-0 group-hover:w-64 focus:w-64 opacity-0 group-hover:opacity-100 focus:opacity-100 cursor-pointer focus:cursor-text"
+              className={`bg-black/40 border border-white/10 rounded-full py-2 pl-10 pr-4 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all w-10 group-hover:w-64 opacity-0 group-hover:opacity-100 cursor-pointer focus:cursor-text focus:w-64 focus:opacity-100`}
             />
             <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-hover:text-white transition-colors pointer-events-none" />
           </form>
-          
-          {/* Mobile Menu Toggle */}
-          <button 
-            className="md:hidden text-white"
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          >
-            {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
-          </button>
+
+          {/* Mobile Search & Toggle */}
+          <div className="flex items-center gap-6 md:hidden">
+            <AnimatePresence>
+                {isMobileSearchOpen ? (
+                    <motion.form
+                        initial={{ width: 0, opacity: 0 }}
+                        animate={{ width: '100%', opacity: 1 }}
+                        exit={{ width: 0, opacity: 0 }}
+                        onSubmit={handleSearch}
+                        className="relative"
+                    >
+                         <input
+                          type="search"
+                          inputMode="search"
+                          enterKeyHint="search"
+                          autoComplete="off"
+                          placeholder="Search..."
+                          autoFocus
+                          value={searchQuery}
+                          onBlur={() => !searchQuery && setIsMobileSearchOpen(false)}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          className="w-40 bg-white/10 border border-white/10 rounded-full py-1.5 pl-8 pr-3 text-white text-sm focus:outline-none focus:border-primary"
+                        />
+                        <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                    </motion.form>
+                ) : (
+                    <button onClick={() => setIsMobileSearchOpen(true)}>
+                        <Search size={24} className="text-white" />
+                    </button>
+                )}
+            </AnimatePresence>
+            
+            <button 
+                className="text-white"
+                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            >
+                {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -166,44 +202,26 @@ export const Navbar: React.FC = () => {
             exit={{ opacity: 0, height: 0 }}
             className="md:hidden bg-[#141414] border-t border-white/10 overflow-hidden"
           >
-            <nav className="flex flex-col p-4 gap-4">
+            <nav className="flex flex-col p-4 gap-2 pb-8">
               <MobileNavLink to="/" label="Home" onClick={() => setIsMobileMenuOpen(false)} />
               <MobileNavLink to="/shorts" label="Shorts" onClick={() => setIsMobileMenuOpen(false)} />
-              <MobileNavLink to="/movies" label="Movies" onClick={() => setIsMobileMenuOpen(false)} />
-              <MobileNavLink to="/tv" label="TV Shows" onClick={() => setIsMobileMenuOpen(false)} />
-              <div className="border-t border-white/10 pt-2">
-                 <div className="text-gray-400 text-sm mb-2 font-bold">Browse Genres</div>
-                 <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto">
-                    {movieGenres.slice(0, 6).map(g => (
-                        <MobileNavLink key={g.id} to={`/genre/movie/${g.id}`} label={g.name} onClick={() => setIsMobileMenuOpen(false)} />
-                    ))}
-                 </div>
-              </div>
+              <MobileNavLink to="/browse-genres" label="Browse Genres" onClick={() => setIsMobileMenuOpen(false)} />
+
               <MobileNavLink to="/my-list" label="My List" onClick={() => setIsMobileMenuOpen(false)} />
               
-              {installPrompt && (
-                <button
-                  onClick={() => {
-                    handleInstallClick();
-                    setIsMobileMenuOpen(false);
-                  }}
-                  className="flex items-center gap-2 text-primary font-bold text-lg py-2 border-b border-white/5 w-full text-left"
-                >
-                  <Download size={20} />
-                  Install App
-                </button>
+              {!isNative && (
+              <a
+                href="/flix.apk"
+                className="flex items-center gap-2 text-primary font-bold text-lg py-2 border-b border-white/5 w-full text-left"
+                onClick={(e) => {
+                  e.preventDefault();
+                  window.location.href = '/flix.apk';
+                }}
+              >
+                <Download size={20} />
+                Download App
+              </a>
               )}
-              
-              <form onSubmit={handleSearch} className="relative mt-4">
-                <input
-                  type="text"
-                  placeholder="Search..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full bg-white/10 border border-white/10 rounded-lg py-3 pl-10 pr-4 text-white focus:outline-none focus:border-primary"
-                />
-                <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-              </form>
             </nav>
           </motion.div>
         )}
@@ -212,21 +230,53 @@ export const Navbar: React.FC = () => {
   );
 };
 
-const NavLink: React.FC<{ to: string; label: string; active: boolean }> = ({ to, label, active }) => (
-  <Link 
-    to={to} 
-    className={`text-sm font-medium transition-colors hover:text-white ${active ? 'text-white font-bold' : 'text-gray-400'}`}
-  >
-    {label}
-  </Link>
-);
+const NavLink: React.FC<{ to: string; label: string; active: boolean }> = ({ to, label, active }) => {
+  return (
+    <Link 
+      to={to} 
+      className={`text-sm font-medium transition-all hover:text-white outline-none rounded px-2 py-1 ${active ? 'text-white font-bold' : 'text-gray-400'}`}
+    >
+      {label}
+    </Link>
+  );
+};
 
-const MobileNavLink: React.FC<{ to: string; label: string; onClick: () => void }> = ({ to, label, onClick }) => (
-  <Link 
-    to={to} 
-    onClick={onClick}
-    className="text-lg font-medium text-gray-300 hover:text-white py-2 block border-b border-white/5"
-  >
-    {label}
-  </Link>
-);
+const MobileNavLink: React.FC<{ to: string; label: string; onClick: () => void }> = ({ to, label, onClick }) => {
+  return (
+    <Link 
+      to={to} 
+      onClick={onClick}
+      className={`text-lg font-medium transition-all outline-none py-2 block border-b border-white/5 text-gray-300 hover:text-white`}
+    >
+      {label}
+    </Link>
+  );
+};
+
+const MenuLink = ({ to, children, className = '' }: { to: string, children: React.ReactNode, className?: string }) => {
+    return (
+        <Link 
+            to={to}
+            className={`text-xs block py-1 truncate transition-colors outline-none px-2 rounded text-gray-400 hover:text-white ${className}`}
+        >
+            {children}
+        </Link>
+    )
+};
+
+const DownloadApkButton: React.FC = () => {
+    const handleDownload = () => {
+        window.location.href = '/flix.apk';
+    };
+
+    return (
+      <a
+        href="/flix.apk"
+        onClick={(e) => { e.preventDefault(); handleDownload(); }}
+        className={`flex items-center gap-2 bg-primary/20 text-primary px-3 py-1.5 rounded-full transition-all text-sm font-bold border border-primary/20 hover:bg-primary/40`}
+      >
+        <Download size={14} />
+        App
+      </a>
+    );
+  };

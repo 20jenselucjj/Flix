@@ -10,6 +10,7 @@ import { Genre } from './pages/Genre';
 import { MyList } from './pages/MyList';
 import { Shorts } from './pages/Shorts';
 import { Navbar } from './components/Navbar';
+import { BrowseGenres } from './pages/BrowseGenres';
 
 import { useMyList } from './hooks/useMyList';
 
@@ -31,6 +32,7 @@ function App() {
       <Route path="/" element={<Layout />}>
         <Route index element={<Home />} />
         <Route path="search" element={<Search />} />
+        <Route path="browse-genres" element={<BrowseGenres />} />
         <Route path="movies" element={<Category type="movie" />} />
         <Route path="tv" element={<Category type="tv" />} />
         <Route path="genre/:type/:genreId" element={<Genre />} />

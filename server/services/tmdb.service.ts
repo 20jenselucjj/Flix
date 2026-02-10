@@ -45,6 +45,21 @@ export const tmdbService = {
     return response.data;
   },
 
+  getUpcomingMovies: async (page: number = 1) => {
+    // Get upcoming movies. 
+    // Region=US helps ensure release dates are relevant to typical audiences
+    const response = await tmdbClient.get('/movie/upcoming', {
+      params: { page, region: 'US' }
+    });
+    // Enrich isn't strictly necessary if we trust the upcoming endpoint, 
+    // but it adds consistency if we want certifications.
+    // However, upcoming movies often lack certifications.
+    // We'll skip enrichment for speed or keep it if certifications are vital.
+    // Let's keep it consistent.
+    response.data.results = await tmdbService._enrichWithCertifications(response.data.results);
+    return response.data;
+  },
+
   findGenreByName: async (query: string) => {
     try {
       const [movieGenres, tvGenres] = await Promise.all([

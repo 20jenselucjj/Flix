@@ -104,20 +104,56 @@ const ActionButton: React.FC<{
   label: string;
   active?: boolean;
   delay?: number;
-}> = ({ onClick, icon, label, active = false, delay = 0 }) => (
-  <motion.button
-    initial={{ opacity: 0, x: 20 }}
-    animate={{ opacity: 1, x: 0 }}
-    transition={{ delay, duration: 0.2 }}
-    onClick={onClick}
-    className="flex flex-col items-center gap-1 group w-full"
-  >
-    <div className={`p-3 rounded-full transition-colors ${active ? 'bg-primary text-black' : 'bg-white/10 text-white hover:bg-white/20'}`}>
-      {icon}
-    </div>
-    <span className="text-[10px] font-medium text-white/80">{label}</span>
-  </motion.button>
-);
+  itemId: number;
+}> = ({ onClick, icon, label, active = false, delay = 0, itemId }) => {
+  return (
+    <motion.button
+        initial={{ opacity: 0, x: 20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ delay, duration: 0.2 }}
+        onClick={onClick}
+        className="flex flex-col items-center gap-1 group w-full outline-none hover:scale-110 transition-transform"
+    >
+        <div className={`p-3 rounded-full transition-all duration-300 ${active ? 'bg-primary text-black' : 'bg-white/10 text-white hover:bg-white/20'}`}>
+        {icon}
+        </div>
+        <span className="text-[10px] font-medium text-white/80">{label}</span>
+    </motion.button>
+  );
+};
+
+const MenuToggleButton: React.FC<{
+    isMenuOpen: boolean;
+    onClick: (e: any) => void;
+    itemId: number;
+}> = ({ isMenuOpen, onClick, itemId }) => {
+    return (
+        <button
+            onClick={onClick}
+            className={`p-3 md:p-4 rounded-full transition-all duration-300 shadow-lg outline-none 
+                ${isMenuOpen ? 'bg-primary text-black rotate-180' : 'bg-black/50 text-white border border-white/20 hover:bg-white/20'}
+                hover:scale-110
+            `}
+        >
+            <ChevronUp size={24} />
+        </button>
+    );
+};
+
+const WatchNowButton: React.FC<{
+    onClick: (e: any) => void;
+    itemId: number;
+}> = ({ onClick, itemId }) => {
+    return (
+         <button 
+            onClick={onClick}
+            className={`bg-white text-black px-6 py-3 rounded-full font-bold flex items-center gap-2 hover:bg-gray-200 transition-all outline-none hover:scale-105`}
+        >
+            <Play size={20} fill="currentColor" />
+            Watch Now
+        </button>
+    );
+};
 
 const ShortCard: React.FC<{ 
   item: ShortItem; 
@@ -136,6 +172,33 @@ const ShortCard: React.FC<{
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const videoContainerRef = useRef<HTMLDivElement>(null);
   const lastTap = useRef<number>(0);
+  const [isMobileLandscape, setIsMobileLandscape] = useState(false);
+  const [showInfo, setShowInfo] = useState(true);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  useEffect(() => {
+    const checkOrientation = () => {
+      const isLandscape = window.matchMedia('(orientation: landscape)').matches;
+      const isMobile = window.matchMedia('(pointer: coarse)').matches || window.innerWidth < 1024;
+      setIsMobileLandscape(isLandscape && isMobile);
+    };
+
+    checkOrientation();
+    window.addEventListener('resize', checkOrientation);
+    return () => window.removeEventListener('resize', checkOrientation);
+  }, []);
+
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (isActive && isPlaying && isMobileLandscape && !isMenuOpen) {
+      timer = setTimeout(() => {
+        setShowInfo(false);
+      }, 5000);
+    } else {
+      setShowInfo(true);
+    }
+    return () => clearTimeout(timer);
+  }, [isActive, isPlaying, isMobileLandscape, isMenuOpen]);
 
   const handleToggleList = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -198,10 +261,12 @@ const ShortCard: React.FC<{
     }
   };
 
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-
   return (
-    <div className="h-screen w-full snap-start relative flex items-center justify-center bg-black overflow-hidden">
+    <div 
+      className="h-screen w-full snap-start relative flex items-center justify-center bg-black overflow-hidden outline-none"
+      onClick={handleDoubleTap}
+      tabIndex={0}
+    >
       {/* Background Blur */}
       <div 
         className="absolute inset-0 opacity-30 blur-3xl scale-125 z-0"
@@ -216,7 +281,6 @@ const ShortCard: React.FC<{
       <div 
         ref={videoContainerRef}
         className="relative w-full h-full md:max-w-6xl md:h-[85vh] z-10 flex items-center justify-center shadow-2xl bg-black"
-        onClick={handleDoubleTap}
       >
         {isActive ? (
           <iframe
@@ -263,16 +327,15 @@ const ShortCard: React.FC<{
       <div className="absolute inset-0 z-30 pointer-events-none">
         
         {/* Toggle Menu Button */}
-        <div className="absolute right-4 bottom-24 md:bottom-1/3 md:right-8 z-50 pointer-events-auto">
-             <button
+        <div className={`absolute right-4 bottom-24 md:bottom-1/3 md:right-8 z-50 transition-opacity duration-500 ${showInfo ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
+             <MenuToggleButton 
+                isMenuOpen={isMenuOpen}
                 onClick={(e) => {
                     e.stopPropagation();
                     setIsMenuOpen(!isMenuOpen);
                 }}
-                className={`p-3 md:p-4 rounded-full transition-all duration-300 shadow-lg ${isMenuOpen ? 'bg-primary text-black rotate-180' : 'bg-black/50 text-white border border-white/20 hover:bg-white/20'}`}
-             >
-                <ChevronUp size={24} />
-             </button>
+                itemId={item.id}
+             />
         </div>
 
         {/* Action Menu */}
@@ -294,6 +357,7 @@ const ShortCard: React.FC<{
                         label="Like"
                         active={isLiked}
                         delay={0.05}
+                        itemId={item.id}
                     />
 
                     <ActionButton 
@@ -302,6 +366,7 @@ const ShortCard: React.FC<{
                         label="My List"
                         active={inList}
                         delay={0.1}
+                        itemId={item.id}
                     />
 
                     <ActionButton 
@@ -309,6 +374,7 @@ const ShortCard: React.FC<{
                         icon={<Info size={20} />}
                         label="Details"
                         delay={0.2}
+                        itemId={item.id}
                     />
 
                     <ActionButton 
@@ -324,6 +390,7 @@ const ShortCard: React.FC<{
                         label={isMuted ? 'Unmute' : 'Mute'}
                         active={!isMuted}
                         delay={0.3}
+                        itemId={item.id}
                     />
 
                     <ActionButton 
@@ -331,6 +398,7 @@ const ShortCard: React.FC<{
                         icon={<Maximize size={20} />}
                         label="Full"
                         delay={0.4}
+                        itemId={item.id}
                     />
                 </motion.div>
             )}
@@ -338,7 +406,7 @@ const ShortCard: React.FC<{
 
         {/* Bottom Info Section */}
         <div className="absolute bottom-0 left-0 right-0 p-6 md:p-12 bg-gradient-to-t from-black via-black/60 to-transparent flex items-end justify-between gap-6">
-          <div className="flex-1 pointer-events-auto pr-16 md:pr-0">
+          <div className={`flex-1 pr-16 md:pr-0 transition-opacity duration-500 ${showInfo ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
             <h2 
                 className="text-2xl md:text-4xl font-bold text-white mb-2 drop-shadow-lg cursor-pointer hover:text-primary transition-colors"
                 onClick={() => navigate(`/movie/${item.id}`)}
@@ -355,16 +423,13 @@ const ShortCard: React.FC<{
                 {item.overview}
             </p>
             
-            <button 
+            <WatchNowButton 
                 onClick={(e) => {
                   e.stopPropagation();
                   navigate(`/watch/movie/${item.id}`);
                 }}
-                className="bg-white text-black px-6 py-3 rounded-full font-bold flex items-center gap-2 hover:bg-gray-200 transition-colors"
-            >
-                <Play size={20} fill="currentColor" />
-                Watch Now
-            </button>
+                itemId={item.id}
+            />
           </div>
         </div>
       </div>

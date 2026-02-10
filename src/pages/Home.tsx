@@ -11,6 +11,7 @@ export const Home: React.FC = () => {
   const [trending, setTrending] = useState<Media[]>([]);
   const [popularMovies, setPopularMovies] = useState<Media[]>([]);
   const [popularTV, setPopularTV] = useState<Media[]>([]);
+  const [heroItem, setHeroItem] = useState<Media | null>(null);
   const [loading, setLoading] = useState(true);
   
   const { history } = useWatchHistory();
@@ -49,6 +50,11 @@ export const Home: React.FC = () => {
         setTrending(trendingData.results);
         setPopularMovies(moviesData.results);
         setPopularTV(tvData.results);
+
+        if (trendingData.results.length > 0) {
+          const randomIndex = Math.floor(Math.random() * Math.min(10, trendingData.results.length));
+          setHeroItem(trendingData.results[randomIndex]);
+        }
       } catch (error) {
         console.error('Failed to fetch home data:', error);
       } finally {
@@ -58,6 +64,30 @@ export const Home: React.FC = () => {
 
     fetchData();
   }, []);
+
+  // Auto-rotate Hero every 10 seconds
+  useEffect(() => {
+    if (trending.length === 0) return;
+
+    const interval = setInterval(() => {
+      // Don't rotate if user is interacting with Hero
+      // Skipped for now with new navigation
+      
+      const topItems = trending.slice(0, 15);
+      let nextIndex = Math.floor(Math.random() * topItems.length);
+      
+      // Try to ensure we don't pick the same item twice
+      setHeroItem(currentItem => {
+        if (currentItem && topItems[nextIndex].id === currentItem.id) {
+           nextIndex = (nextIndex + 1) % topItems.length;
+        }
+        return topItems[nextIndex];
+      });
+    }, 10000);
+
+    return () => clearInterval(interval);
+  }, [trending]);
+
 
   const handleSurprise = () => {
     // Combine all lists to get a large pool
@@ -112,11 +142,9 @@ export const Home: React.FC = () => {
     );
   }
 
-  const heroItem = trending[0];
-
   return (
     <div className="pb-20">
-      <Hero media={heroItem} onSurprise={handleSurprise} />
+      <Hero media={heroItem || trending[0]} onSurprise={handleSurprise} />
       <div className="relative z-10 container mx-auto px-4">
         {uniqueHistory.length > 0 && (
             <MediaRow title="Continue Watching" items={uniqueHistory} />
@@ -124,7 +152,7 @@ export const Home: React.FC = () => {
         {recommendations.length > 0 && (
             <MediaRow title="Recommended For You" items={recommendations} />
         )}
-        <MediaRow title="Trending Now" items={trending.slice(1)} />
+        <MediaRow title="Trending Now" items={trending.filter(t => t.id !== (heroItem?.id || trending[0]?.id))} />
         <MediaRow title="Popular Movies" items={popularMovies} linkTo="/movies" />
         <MediaRow title="Popular TV Shows" items={popularTV} linkTo="/tv" />
       </div>

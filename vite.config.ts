@@ -19,12 +19,13 @@ export default defineConfig({
       injectRegister: null, // We handle registration manually to catch errors
       includeAssets: ['F192.png', 'F512.png', 'maskable-icon-192.png', 'maskable-icon-512.png'],
       manifest: {
-        name: 'Flix',
-        short_name: 'Flix',
+        name: 'FLIX',
+        short_name: 'FLIX',
         description: 'Stream your favorite movies and TV shows',
         theme_color: '#000000',
         background_color: '#000000',
-        display: 'standalone',
+        display: 'fullscreen',
+        display_override: ['window-controls-overlay', 'minimal-ui'],
         orientation: 'any',
         start_url: '/',
         scope: '/',

@@ -30,6 +30,17 @@ export const mediaController = {
     }
   },
 
+  getUpcoming: async (req: Request, res: Response) => {
+    try {
+      const { page } = req.query;
+      const pageNum = page ? parseInt(page as string) : 1;
+      const data = await tmdbService.getUpcomingMovies(pageNum);
+      res.json(data);
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to fetch upcoming content' });
+    }
+  },
+
   search: async (req: Request, res: Response) => {
     try {
       const { query } = req.query;
