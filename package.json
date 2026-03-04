@@ -18,7 +18,7 @@
     "@capacitor/core": "^8.0.2",
     "@capacitor/screen-orientation": "^8.0.0",
     "@supabase/supabase-js": "^2.93.3",
-    "axios": "^1.13.4",
+    "axios": "^1.13.5",
     "cors": "^2.8.5",
     "dotenv": "^17.2.1",
     "express": "^4.21.2",
