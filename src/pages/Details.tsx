@@ -63,7 +63,7 @@ export const Details: React.FC = () => {
   const handleShare = async () => {
     const shareUrl = window.location.href;
     const shareTitle = media?.title || media?.name || 'Check this out!';
-    const shareText = `Check out ${shareTitle} on Flix!`;
+    const shareText = `Check out ${shareTitle}!`;
 
     if (navigator.share) {
       try {

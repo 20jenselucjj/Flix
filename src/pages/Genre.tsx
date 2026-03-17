@@ -1,9 +1,10 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { useParams, useLocation } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { api } from '../lib/api';
 import { MediaCard } from '../components/MediaCard';
 import { FilterBar } from '../components/FilterBar';
 import { Media, Genre as GenreType } from '../types';
+import { getImageUrl } from '../lib/utils';
 
 export const Genre: React.FC = () => {
   const { type, genreId } = useParams<{ type: string; genreId: string }>();
@@ -14,8 +15,9 @@ export const Genre: React.FC = () => {
   const [sortBy, setSortBy] = useState('popularity.desc');
   const [hasMore, setHasMore] = useState(true);
   const [isFetching, setIsFetching] = useState(false);
-  const location = useLocation();
   const observer = useRef<IntersectionObserver | null>(null);
+  const resetKey = `${type ?? ''}:${genreId ?? ''}:${sortBy}`;
+  const previousResetKey = useRef<string | null>(null);
 
   const lastElementRef = useCallback((node: HTMLDivElement) => {
     if (loading || isFetching) return;
@@ -29,11 +31,29 @@ export const Genre: React.FC = () => {
   }, [loading, isFetching, hasMore]);
 
   useEffect(() => {
+    if (previousResetKey.current === null) {
+      previousResetKey.current = resetKey;
+      return;
+    }
+
+    if (previousResetKey.current !== resetKey) {
+      previousResetKey.current = resetKey;
+      setItems([]);
+      setPage(1);
+      setHasMore(true);
+      setLoading(true);
+    }
+  }, [resetKey]);
+
+  const handleSortChange = (value: string) => {
+    if (value === sortBy) return;
+
     setItems([]);
     setPage(1);
     setHasMore(true);
     setLoading(true);
-  }, [type, genreId, location.pathname, sortBy]);
+    setSortBy(value);
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -66,19 +86,45 @@ export const Genre: React.FC = () => {
     };
 
     fetchData();
-  }, [type, genreId, page, location.pathname, sortBy]);
+  }, [type, genreId, page, sortBy]);
 
   const title = `${genreName} ${type === 'movie' ? 'Movies' : 'TV Shows'}`;
 
   return (
     <div className="container mx-auto px-4 py-8 pt-24">
+      <section className="relative mb-8 overflow-hidden rounded-[2rem] border border-white/10 bg-white/[0.03]">
+        {items[0]?.backdrop_path && (
+          <div className="absolute inset-0 opacity-20">
+            <img
+              src={getImageUrl(items[0].backdrop_path, 'w1280')}
+              alt=""
+              className="h-full w-full object-cover"
+            />
+          </div>
+        )}
+        <div className="absolute inset-0 bg-gradient-to-r from-background via-background/90 to-background/70" />
+        <div className="relative flex flex-col gap-5 px-6 py-8 md:flex-row md:items-end md:justify-between md:px-8 md:py-10">
+          <div className="max-w-2xl">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-[0.22em] text-primary/80">Genre spotlight</p>
+            <h2 className="text-3xl font-bold text-white md:text-4xl">{title}</h2>
+            <p className="mt-3 text-sm leading-6 text-white/65 md:text-base">
+              Dive into {genreName || 'this genre'} with a cleaner browse surface, faster scanning, and sorting tuned for discovery instead of endless scrolling.
+            </p>
+            {items.length > 0 && (
+              <p className="mt-4 text-sm font-medium text-white/45">Showing {items.length} titles and loading more as you browse.</p>
+            )}
+          </div>
+          <FilterBar 
+            sortBy={sortBy} 
+            onSortChange={handleSortChange} 
+            type={type as 'movie' | 'tv'} 
+          />
+        </div>
+      </section>
+
       <div className="flex flex-row items-center justify-between mb-4">
-        <h2 className="text-2xl font-bold">{title}</h2>
-        <FilterBar 
-          sortBy={sortBy} 
-          onSortChange={setSortBy} 
-          type={type as 'movie' | 'tv'} 
-        />
+        <h3 className="text-xl font-semibold text-white/90">All results</h3>
+        <p className="text-sm text-white/45">Infinite scroll enabled</p>
       </div>
       
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-6">

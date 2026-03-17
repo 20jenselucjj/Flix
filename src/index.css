@@ -4,14 +4,34 @@
 
 :root {
   color-scheme: dark;
+  background: #090b11;
+}
+
+html {
+  min-height: 100%;
+  background:
+    radial-gradient(circle at top, rgba(124, 140, 255, 0.14), transparent 28%),
+    radial-gradient(circle at 80% 0%, rgba(238, 26, 49, 0.12), transparent 22%),
+    #090b11;
 }
 
 body {
   @apply bg-background text-text font-sans antialiased;
-  background-image: linear-gradient(to bottom, #141414, #000000);
+  background-image:
+    radial-gradient(circle at top, rgba(124, 140, 255, 0.12), transparent 28%),
+    linear-gradient(180deg, #0a0d14 0%, #090b11 45%, #06070b 100%);
   min-height: 100vh;
   overflow-x: hidden;
   touch-action: pan-x pan-y; /* Prevent double-tap zoom and pinch-zoom behavior where supported */
+}
+
+#root {
+  min-height: 100vh;
+}
+
+::selection {
+  background: rgba(124, 140, 255, 0.35);
+  color: #fff;
 }
 
 /* Custom scrollbar */
@@ -39,4 +59,12 @@ body {
 /* Ensure focus visibility for keyboard/remote users */
 :focus-visible {
   @apply ring-2 ring-white ring-offset-2 ring-offset-black;
+}
+
+.panel {
+  @apply border border-white/10 bg-panel-gradient backdrop-blur-xl shadow-panel;
+}
+
+.section-shell {
+  @apply rounded-[2rem] border border-white/10 bg-white/[0.03] shadow-panel;
 }

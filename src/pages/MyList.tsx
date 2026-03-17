@@ -1,9 +1,12 @@
 import React from 'react';
 import { motion } from 'framer-motion';
+import { BookmarkPlus } from 'lucide-react';
 import { MediaCard } from '../components/MediaCard';
 import { useMyList } from '../hooks/useMyList';
 import { useWatchHistory } from '../hooks/useWatchHistory';
 import { MediaRow } from '../components/MediaRow';
+import { EmptyState } from '../components/EmptyState';
+import { Link } from 'react-router-dom';
 
 export const MyList: React.FC = () => {
   const { list, fetchList, removeFromList } = useMyList();
@@ -11,7 +14,7 @@ export const MyList: React.FC = () => {
 
   React.useEffect(() => {
     fetchList();
-  }, []);
+  }, [fetchList]);
 
   // Merge list with history to show progress
   const listWithProgress = React.useMemo(() => {
@@ -51,13 +54,21 @@ export const MyList: React.FC = () => {
             ))}
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center py-20 text-center">
-            <div className="text-6xl mb-4">📺</div>
-            <h3 className="text-2xl font-bold text-white mb-2">Your list is empty</h3>
-            <p className="text-text-secondary max-w-md">
-              Add movies and TV shows to your list so you can easily find them later.
-            </p>
-          </div>
+          <EmptyState
+            icon={BookmarkPlus}
+            title="Your list is empty"
+            description="Add movies and TV shows to your list so you can easily find them later."
+            action={
+              <div className="flex flex-wrap justify-center gap-3">
+                <Link to="/movies" className="inline-block rounded-full bg-white px-6 py-3 font-bold text-black transition-colors hover:bg-gray-200">
+                  Browse Movies
+                </Link>
+                <Link to="/tv" className="inline-block rounded-full border border-white/15 bg-white/5 px-6 py-3 font-bold text-white transition-colors hover:bg-white/10">
+                  Browse TV Shows
+                </Link>
+              </div>
+            }
+          />
         )}
       </motion.div>
     </div>

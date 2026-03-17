@@ -1,6 +1,9 @@
 import React, { useEffect } from 'react';
+import { HomeIcon } from 'lucide-react';
 import { Routes, Route } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { Layout } from './components/Layout';
+import { EmptyState } from './components/EmptyState';
 import { Home } from './pages/Home';
 import { Search } from './pages/Search';
 import { Details } from './pages/Details';
@@ -19,7 +22,7 @@ function App() {
 
   useEffect(() => {
     fetchList();
-  }, []);
+  }, [fetchList]);
 
   return (
     <Routes>
@@ -39,7 +42,17 @@ function App() {
         <Route path="my-list" element={<MyList />} />
         <Route path=":type/:id" element={<Details />} />
         <Route path="watch/:type/:id" element={<Player />} />
-        <Route path="*" element={<div className="p-10 text-center">Page Not Found</div>} />
+        <Route path="*" element={<EmptyState
+          icon={HomeIcon}
+          title="Page not found"
+          description="That page doesn’t exist yet, but the next great watch is still one click away."
+          action={
+            <Link to="/" className="inline-flex items-center gap-2 rounded-full bg-white px-6 py-3 font-bold text-black transition-colors hover:bg-gray-200">
+              <HomeIcon size={18} />
+              Back to Home
+            </Link>
+          }
+        />} />
       </Route>
     </Routes>
   );

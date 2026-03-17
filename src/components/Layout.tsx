@@ -4,15 +4,23 @@ import { Outlet } from 'react-router-dom';
 
 export const Layout: React.FC = () => {
   return (
-    <div className="min-h-screen flex flex-col bg-background text-text">
+    <div className="relative min-h-screen overflow-hidden bg-background text-text">
+      <div className="pointer-events-none absolute inset-0 bg-app-radial opacity-90" />
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-64 bg-gradient-to-b from-white/[0.04] to-transparent" />
       <Navbar />
-      <main className="flex-1 pt-8">
+      <main className="relative z-10 flex-1 pt-24 md:pt-28">
         <Outlet />
       </main>
-      <footer className="bg-black py-8 border-t border-white/10">
-        <div className="container mx-auto px-4 text-center text-text-secondary text-sm">
-          <p>&copy; {new Date().getFullYear()} Flix. All rights reserved.</p>
+      <footer className="relative z-10 mt-20 border-t border-white/10 bg-black/30 backdrop-blur-xl">
+        <div className="container mx-auto flex flex-col gap-6 px-4 py-10 md:flex-row md:items-center md:justify-between">
+
+          <div className="flex flex-wrap items-center gap-3 text-sm text-text-secondary">
+            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5">Cinematic browsing</span>
+            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5">Cleaner playback</span>
+            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5">Built for all screens</span>
+          </div>
         </div>
+
       </footer>
     </div>
   );

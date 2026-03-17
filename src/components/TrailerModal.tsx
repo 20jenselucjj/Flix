@@ -3,6 +3,20 @@ import { X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useIsMobile } from '../hooks/useIsMobile';
 
+type FullscreenCapableElement = HTMLDivElement & {
+  webkitRequestFullscreen?: () => Promise<void> | void;
+  mozRequestFullScreen?: () => Promise<void> | void;
+  msRequestFullscreen?: () => Promise<void> | void;
+};
+
+type OrientationWithOptionalLock = ScreenOrientation & {
+  lock?: (orientation: 'landscape') => Promise<void>;
+};
+
+type WebkitDocument = Document & {
+  webkitFullscreenElement?: Element | null;
+};
+
 interface TrailerModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -26,19 +40,18 @@ export const TrailerModal: React.FC<TrailerModalProps> = ({ isOpen, onClose, vid
     if (isOpen && isMobile && containerRef.current) {
       const enterFullscreen = async () => {
         try {
-          // Type assertion for vendor prefixes if needed, though standard API is preferred
-          const element = containerRef.current as any;
+          const element = containerRef.current as FullscreenCapableElement;
           const requestMethod = element.requestFullscreen || element.webkitRequestFullscreen || element.mozRequestFullScreen || element.msRequestFullscreen;
 
           if (requestMethod) {
             await requestMethod.call(element);
             
             // Try to lock orientation to landscape
-            if (screen.orientation && 'lock' in screen.orientation) {
-               // @ts-ignore - lock is not in all TS definitions
-               await screen.orientation.lock('landscape').catch(() => {
-                 // Ignore errors (e.g. not supported or permission denied)
-               });
+            const orientation = screen.orientation as OrientationWithOptionalLock | undefined;
+            if (orientation?.lock) {
+               await orientation.lock('landscape').catch(() => {
+                  // Ignore errors (e.g. not supported or permission denied)
+                });
             }
           }
         } catch (e) {
@@ -55,7 +68,7 @@ export const TrailerModal: React.FC<TrailerModalProps> = ({ isOpen, onClose, vid
   // Listen for fullscreen exit to close modal on mobile
   useEffect(() => {
     const handleFullscreenChange = () => {
-      const isFullscreen = document.fullscreenElement || (document as any).webkitFullscreenElement;
+      const isFullscreen = document.fullscreenElement || (document as WebkitDocument).webkitFullscreenElement;
       if (!isFullscreen && isMobile && isOpen) {
         onClose();
       }
@@ -90,6 +103,7 @@ export const TrailerModal: React.FC<TrailerModalProps> = ({ isOpen, onClose, vid
             className="relative w-full max-w-5xl max-h-[80vh] aspect-video bg-black rounded-xl overflow-hidden shadow-2xl z-10"
           >
             <button
+              type="button"
               onClick={onClose}
               className={`absolute top-4 right-4 z-20 bg-black/50 hover:bg-white/20 text-white p-3 rounded-full transition-colors backdrop-blur-md ${isMobile ? 'hidden' : 'block'}`}
             >

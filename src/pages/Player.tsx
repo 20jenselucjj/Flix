@@ -27,6 +27,8 @@ export const Player: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [currentTime, setCurrentTime] = useState(0);
   const [volume, setVolume] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
   const [showControls, setShowControls] = useState(true);
@@ -134,10 +136,25 @@ export const Player: React.FC = () => {
       return saved ? saved.timestamp : 0;
   }, [id, season, episode, getProgress]);
 
-  const showToast = (msg: string) => {
+  const showToast = useCallback((msg: string) => {
     setToastMessage(msg);
     if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
     toastTimeoutRef.current = setTimeout(() => setToastMessage(null), 2000);
+  }, []);
+
+  const formatTime = (value: number) => {
+    if (!Number.isFinite(value) || value < 0) return '0:00';
+
+    const totalSeconds = Math.floor(value);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+
+    if (hours > 0) {
+      return `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    }
+
+    return `${minutes}:${String(seconds).padStart(2, '0')}`;
   };
 
   const getProcessedUrl = (url: string) => {
@@ -239,7 +256,7 @@ export const Player: React.FC = () => {
         videoRef.current.currentTime = savedProgress.timestamp;
       }
     }
-  }, [currentSource, id, getProgress]);
+  }, [id, getProgress]);
 
   useEffect(() => {
     if (!currentSource || !media || !id || !isEmbed) return;
@@ -299,15 +316,17 @@ export const Player: React.FC = () => {
       showToast(`${seconds > 0 ? '+' : ''}${seconds}s`);
       handleMouseMove();
     }
-  }, [handleMouseMove]);
+  }, [handleMouseMove, showToast]);
 
   const handleTimeUpdate = () => {
     if (videoRef.current && media) {
       const current = videoRef.current.currentTime;
-      const duration = videoRef.current.duration;
-      const progressPercent = (current / duration) * 100;
+      const nextDuration = videoRef.current.duration;
+      const progressPercent = nextDuration > 0 ? (current / nextDuration) * 100 : 0;
       
       setProgress(progressPercent);
+      setCurrentTime(current);
+      setDuration(nextDuration || 0);
       videoTimeRef.current = current;
       
       const now = Date.now();
@@ -332,20 +351,20 @@ export const Player: React.FC = () => {
     }
   };
 
-  const toggleMute = () => {
+  const toggleMute = useCallback(() => {
     if (videoRef.current) {
       videoRef.current.muted = !isMuted;
       setIsMuted(!isMuted);
     }
-  };
+  }, [isMuted]);
 
-  const toggleFullscreen = () => {
+  const toggleFullscreen = useCallback(() => {
     if (document.fullscreenElement) {
       document.exitFullscreen();
     } else {
       document.documentElement.requestFullscreen();
     }
-  };
+  }, []);
 
   // Keyboard Shortcuts
   useEffect(() => {
@@ -407,7 +426,7 @@ export const Player: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [togglePlay, seekRelative, isEmbed, showControls]);
+  }, [togglePlay, seekRelative, isEmbed, showControls, showToast, toggleFullscreen, toggleMute]);
 
   const handleDoubleTap = (side: 'left' | 'right') => {
     const now = Date.now();
@@ -438,6 +457,7 @@ export const Player: React.FC = () => {
       <div className="h-screen bg-black flex flex-col items-center justify-center text-white">
         <p className="mb-4">No sources found for this content.</p>
         <button 
+          type="button"
           onClick={handleBack}
           className="bg-primary px-6 py-2 rounded font-bold transition-transform hover:scale-105"
         >
@@ -448,16 +468,11 @@ export const Player: React.FC = () => {
   }
 
   const title = media?.title || media?.name;
+  const subtitleLabel = type === 'tv' ? `Season ${season || '1'} • Episode ${episode || '1'}` : 'Movie';
 
   return (
-    <div 
+    <section 
       className="fixed inset-0 bg-black z-[100] flex items-center justify-center overflow-hidden group select-none"
-      onMouseMove={handleMouseMove}
-      onClick={() => {
-        setShowControls(!showControls);
-        handleMouseMove(); // reset timer
-      }}
-      onMouseLeave={() => isPlaying && setShowControls(false)}
     >
       {/* Ambient Mode Background */}
       {media?.backdrop_path && (
@@ -487,23 +502,27 @@ export const Player: React.FC = () => {
       )}
 
       {/* Double Tap Zones (Mobile/Touch) */}
-      <div 
-        className="absolute inset-y-0 left-0 w-1/4 z-30"
+      <button
+        type="button"
+        aria-label="Rewind 10 seconds"
+        className="absolute inset-y-0 left-0 z-30 w-1/4"
         onClick={(e) => {
-            e.stopPropagation();
-            handleDoubleTap('left');
+          e.stopPropagation();
+          handleDoubleTap('left');
         }}
       />
-      <div 
-        className="absolute inset-y-0 right-0 w-1/4 z-30"
+      <button
+        type="button"
+        aria-label="Forward 10 seconds"
+        className="absolute inset-y-0 right-0 z-30 w-1/4"
         onClick={(e) => {
-            e.stopPropagation();
-            handleDoubleTap('right');
+          e.stopPropagation();
+          handleDoubleTap('right');
         }}
       />
 
       {isEmbed ? (
-        <div className="w-full h-full relative z-10">
+        <div className="relative z-10 h-full w-full overflow-hidden rounded-none md:m-6 md:h-[calc(100%-3rem)] md:w-[calc(100%-3rem)] md:rounded-[2rem] md:border md:border-white/10 md:bg-black md:shadow-[0_40px_120px_rgba(0,0,0,0.55)]">
             <iframe
                 src={getProcessedUrl(currentSource.url)}
                 className="w-full h-full border-0 pointer-events-auto"
@@ -515,6 +534,25 @@ export const Player: React.FC = () => {
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                 referrerPolicy="no-referrer"
             />
+            <button
+              type="button"
+              aria-label="Toggle player controls"
+              className="absolute inset-0 z-20"
+              onClick={() => {
+                setShowControls((value) => !value);
+                handleMouseMove();
+              }}
+            />
+            <div className="pointer-events-none absolute inset-x-0 top-0 flex items-center justify-between bg-gradient-to-b from-black/85 via-black/35 to-transparent px-5 py-4 md:px-6">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.28em] text-white/55">Now playing</p>
+                <h1 className="mt-1 text-lg font-semibold text-white md:text-2xl">{title}</h1>
+                <p className="mt-1 text-sm text-white/65">{subtitleLabel} • Source: {currentSource.source}</p>
+              </div>
+              <div className="rounded-full border border-white/10 bg-black/45 px-3 py-1.5 text-xs text-white/80 backdrop-blur-xl">
+                {isSubtitlesEnabled ? 'Subtitles preferred' : 'Default subtitles'}
+              </div>
+            </div>
         </div>
       ) : (
         <video
@@ -522,13 +560,24 @@ export const Player: React.FC = () => {
           src={currentSource.url}
           className="w-full h-full relative z-10 shadow-2xl transition-all duration-300 object-contain"
           autoPlay
+          onClick={() => {
+            setShowControls((value) => !value);
+            handleMouseMove();
+          }}
           onTimeUpdate={handleTimeUpdate}
           onPlay={() => setIsPlaying(true)}
           onPause={() => setIsPlaying(false)}
           onWaiting={() => setIsBuffering(true)}
           onPlaying={() => setIsBuffering(false)}
           onCanPlay={() => setIsBuffering(false)}
-        />
+          onLoadedMetadata={() => {
+            if (!videoRef.current) return;
+            setDuration(videoRef.current.duration || 0);
+            setCurrentTime(videoRef.current.currentTime || 0);
+          }}
+        >
+          <track kind="captions" label="English captions" />
+        </video>
       )}
 
       {/* Controls Overlay */}
@@ -539,23 +588,28 @@ export const Player: React.FC = () => {
         {/* Top Bar */}
         <div 
           className={`absolute top-0 left-0 right-0 p-6 flex justify-between items-center bg-gradient-to-b from-black/90 to-transparent ${showControls ? 'pointer-events-auto' : 'pointer-events-none'}`}
-          onClick={(e) => e.stopPropagation()}
         >
           <div className="flex items-center gap-4">
             <button 
+                type="button"
                 onClick={handleBack} 
                 className="text-white hover:text-primary transition-colors bg-white/10 p-3 rounded-full backdrop-blur-md hover:bg-white/20"
             >
                 <ArrowLeft size={24} />
             </button>
-            {title && (
-                <div 
-                    className="text-white font-bold text-lg drop-shadow-md cursor-pointer hover:text-primary transition-colors"
-                    onClick={() => type && id && navigate(`/${type}/${id}`)}
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-white/50">Now playing</p>
+              {title && (
+                <button
+                  type="button"
+                  className="text-left text-lg font-bold text-white drop-shadow-md transition-colors hover:text-primary"
+                  onClick={() => type && id && navigate(`/${type}/${id}`)}
                 >
-                    {title}
-                </div>
-            )}
+                  {title}
+                </button>
+              )}
+              <p className="mt-1 text-sm text-white/65">{subtitleLabel}</p>
+            </div>
           </div>
           
           <div className="flex gap-4 relative pointer-events-auto">
@@ -563,6 +617,7 @@ export const Player: React.FC = () => {
               <>
                 {parseInt(episode || '1') > 1 && (
                   <button 
+                    type="button"
                     onClick={handlePrevEpisode}
                     className="text-white hover:text-primary transition-colors bg-white/10 p-3 rounded-full backdrop-blur-md hover:bg-white/20"
                     title="Previous Episode"
@@ -571,6 +626,7 @@ export const Player: React.FC = () => {
                   </button>
                 )}
                 <button 
+                  type="button"
                   onClick={handleNextEpisode}
                   className="text-white hover:text-primary transition-colors bg-white/10 p-3 rounded-full backdrop-blur-md hover:bg-white/20"
                   title="Next Episode"
@@ -581,6 +637,7 @@ export const Player: React.FC = () => {
             )}
 
             <button 
+              type="button"
               onClick={() => setIsSettingsOpen(!isSettingsOpen)}
               className={`text-white hover:text-primary transition-colors bg-white/10 p-3 rounded-full backdrop-blur-md hover:bg-white/20 ${isSettingsOpen ? 'text-primary bg-white/20' : ''}`}
             >
@@ -588,12 +645,27 @@ export const Player: React.FC = () => {
             </button>
             {/* Source Selector Popup */}
             {isSettingsOpen && (
-              <div className="absolute top-full right-0 mt-2 bg-[#181818] border border-white/10 rounded-xl p-2 min-w-[200px] block shadow-2xl">
-                <h4 className="text-xs text-gray-500 mb-2 px-3 py-1 uppercase font-bold tracking-wider">Select Source</h4>
+              <div className="absolute right-0 top-full mt-2 block min-w-[260px] rounded-2xl border border-white/10 bg-[#181818]/95 p-2 shadow-2xl backdrop-blur-xl">
+                <div className="border-b border-white/10 px-3 py-2">
+                  <h4 className="text-xs font-bold uppercase tracking-[0.24em] text-gray-500">Playback settings</h4>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsSubtitlesEnabled((value) => !value)}
+                  className={`mt-2 flex w-full items-center justify-between rounded-xl px-3 py-3 text-sm transition-colors ${isSubtitlesEnabled ? 'bg-primary/15 text-white' : 'text-gray-300 hover:bg-white/5'}`}
+                >
+                  <span className="flex items-center gap-2">
+                    <Captions size={16} />
+                    Subtitle preference
+                  </span>
+                  <span className="text-xs text-white/65">{isSubtitlesEnabled ? 'On' : 'Off'}</span>
+                </button>
+                <h4 className="mb-2 mt-3 px-3 py-1 text-xs font-bold uppercase tracking-[0.24em] text-gray-500">Select source</h4>
                 
-                {sources.map((src, idx) => (
+                {sources.map((src) => (
                   <button
-                    key={idx}
+                    type="button"
+                    key={`${src.source}-${src.url}`}
                     onClick={() => {
                       setCurrentSource(src);
                       setIsSettingsOpen(false);
@@ -609,7 +681,14 @@ export const Player: React.FC = () => {
         </div>
 
         {/* Bottom Bar - Only for native video player */}
-        <div className={`absolute bottom-0 left-0 right-0 p-8 bg-gradient-to-t from-black/90 via-black/60 to-transparent ${showControls ? 'pointer-events-auto' : 'pointer-events-none'}`} onClick={(e) => e.stopPropagation()}>
+        <div className={`absolute bottom-0 left-0 right-0 p-8 bg-gradient-to-t from-black/90 via-black/60 to-transparent ${showControls ? 'pointer-events-auto' : 'pointer-events-none'}`}>
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3 text-sm text-white/70">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="rounded-full border border-white/10 bg-white/10 px-3 py-1">{currentSource.source}</span>
+                {startAt > 0 && <span className="rounded-full border border-white/10 bg-white/10 px-3 py-1">Resumed where you left off</span>}
+              </div>
+              <div className="font-medium text-white/85">{formatTime(currentTime)} / {formatTime(duration)}</div>
+            </div>
             {/* Progress Bar */}
             <div className="w-full mb-6 flex items-center gap-4 group/progress">
               <div className="relative w-full h-1 bg-white/20 rounded-full cursor-pointer group-hover/progress:h-2 transition-all">
@@ -630,11 +709,12 @@ export const Player: React.FC = () => {
 
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-8">
-                <button onClick={togglePlay} className="text-white hover:text-primary transition-transform hover:scale-110">
+                <button type="button" onClick={togglePlay} className="rounded-full bg-white p-4 text-black transition-transform hover:scale-105">
                   {isPlaying ? <Pause size={40} fill="currentColor" /> : <Play size={40} fill="currentColor" />}
                 </button>
                 
                 <button 
+                    type="button"
                     onClick={() => seekRelative(-10)} 
                     className="text-white hover:text-primary transition-colors"
                     title="-10s"
@@ -642,6 +722,7 @@ export const Player: React.FC = () => {
                     <RotateCcw size={24} />
                 </button>
                 <button 
+                    type="button"
                     onClick={() => seekRelative(10)} 
                     className="text-white hover:text-primary transition-colors"
                     title="+10s"
@@ -650,7 +731,7 @@ export const Player: React.FC = () => {
                 </button>
 
                 <div className="flex items-center gap-4 group/vol">
-                  <button onClick={toggleMute} className="text-white hover:text-primary transition-colors">
+                  <button type="button" onClick={toggleMute} className="text-white hover:text-primary transition-colors">
                     {isMuted ? <VolumeX size={28} /> : <Volume2 size={28} />}
                   </button>
                   <div className={`overflow-hidden transition-all duration-300 ${isMobile ? 'w-24' : 'w-0 group-hover/vol:w-24'}`}>
@@ -672,15 +753,15 @@ export const Player: React.FC = () => {
                 </div>
               </div>
 
-              <div className="flex items-center gap-4">
-                <button onClick={toggleFullscreen} className="text-white hover:text-primary transition-transform hover:scale-110">
-                  <Maximize size={28} />
-                </button>
-              </div>
+               <div className="flex items-center gap-4">
+                 <button type="button" onClick={toggleFullscreen} className="rounded-full border border-white/10 bg-white/5 p-3 text-white transition-transform hover:scale-105 hover:text-primary">
+                   <Maximize size={28} />
+                 </button>
+               </div>
             </div>
           </div>
       </div>
       )}
-    </div>
+    </section>
   );
 };

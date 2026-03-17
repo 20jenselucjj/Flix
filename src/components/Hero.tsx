@@ -1,9 +1,8 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
-import { Play, Info, Plus, Check, Shuffle } from 'lucide-react';
+import { Play, Info, Plus, Check, Shuffle, Star } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Media } from '../types';
-import { getImageUrl } from '../lib/utils';
+import { getDisplayYear, getGenreLabels, getImageUrl, getMediaLabel } from '../lib/utils';
 import { useMyList } from '../hooks/useMyList';
 import { useIsMobile } from '../hooks/useIsMobile';
 
@@ -25,6 +24,9 @@ export const Hero: React.FC<HeroProps> = ({ media, onSurprise }) => {
   const overview = media.overview;
   const type = media.media_type || (media.title ? 'movie' : 'tv');
   const inList = isInList(media.id);
+  const genreLabels = getGenreLabels(media.genre_ids, 2);
+  const displayYear = getDisplayYear(media.release_date || media.first_air_date);
+  const mediaLabel = getMediaLabel(type);
 
   const toggleList = () => {
     if (inList) {
@@ -62,6 +64,30 @@ export const Hero: React.FC<HeroProps> = ({ media, onSurprise }) => {
           <h1 className="text-5xl md:text-7xl font-black mb-4 text-white drop-shadow-2xl leading-tight tracking-tight">
             {title}
           </h1>
+          <div className="flex flex-wrap items-center gap-3 text-sm md:text-base text-gray-200 font-semibold mb-4 drop-shadow-md">
+            {media.vote_average > 0 && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-3 py-1 text-emerald-300 ring-1 ring-emerald-400/20">
+                <Star size={14} className="fill-current" />
+                {Math.round(media.vote_average * 10)}% Match
+              </span>
+            )}
+            {displayYear && <span>{displayYear}</span>}
+            {media.certification && (
+              <span className="rounded-full border border-white/20 bg-white/5 px-3 py-1 text-xs uppercase tracking-[0.18em] text-white/80">
+                {media.certification}
+              </span>
+            )}
+            {mediaLabel && (
+              <span className="rounded-full border border-white/20 bg-white/5 px-3 py-1 text-xs uppercase tracking-[0.18em] text-white/80">
+                {mediaLabel}
+              </span>
+            )}
+            {genreLabels.map((genre) => (
+              <span key={genre} className="rounded-full bg-white/10 px-3 py-1 text-xs text-white/85 backdrop-blur-sm">
+                {genre}
+              </span>
+            ))}
+          </div>
           <p className="text-lg md:text-xl text-gray-100 mb-8 line-clamp-3 drop-shadow-lg max-w-2xl font-medium leading-relaxed">
             {overview}
           </p>

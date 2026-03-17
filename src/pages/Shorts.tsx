@@ -1,12 +1,16 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Check, Play, Info, Maximize, ChevronUp, Heart } from 'lucide-react';
+import { Plus, Check, Play, Info, Maximize, ChevronUp, Heart, Volume2, VolumeX } from 'lucide-react';
 import { useMyList } from '../hooks/useMyList';
 import { useWatchHistory } from '../hooks/useWatchHistory';
 import { useShortsFeed } from '../hooks/useShortsFeed';
 import { getImageUrl } from '../lib/utils';
 import { Media, ShortItem } from '../types';
 import { motion, AnimatePresence } from 'framer-motion';
+
+type UnlockableOrientation = ScreenOrientation & {
+  unlock?: () => void;
+};
 
 export const Shorts: React.FC = () => {
   const { items, loading, hasMore, loadMore } = useShortsFeed();
@@ -15,154 +19,167 @@ export const Shorts: React.FC = () => {
   const [isMuted, setIsMuted] = useState(false);
   const [lastActiveIndex, setLastActiveIndex] = useState(0);
   const [startTime, setStartTime] = useState(Date.now());
-  
+
   const navigate = useNavigate();
   const { addToList, isInList, removeFromList } = useMyList();
   const { recordInteraction } = useWatchHistory();
 
-  // Unlock orientation when entering Shorts to allow landscape viewing
   useEffect(() => {
-    if (screen.orientation && 'unlock' in screen.orientation) {
+    const orientation = screen.orientation as UnlockableOrientation;
+    if (orientation?.unlock) {
       try {
-        // @ts-ignore
-        screen.orientation.unlock();
-      } catch (e) {
-        // Ignore errors if unlock is not supported or fails
+        orientation.unlock();
+      } catch {
+        // Ignore unsupported unlocks.
       }
     }
   }, []);
 
-  // Handle interaction tracking on scroll
   const handleScroll = () => {
-    if (containerRef.current) {
-      const index = Math.round(containerRef.current.scrollTop / window.innerHeight);
-      
-      if (index !== activeIndex) {
-        // User swiped away from lastActiveIndex
-        const duration = Date.now() - startTime;
-        const previousItem = items[lastActiveIndex];
-        
-        if (previousItem) {
-          // Logic: < 3s = skip, > 30s = full_watch (approx), else partial
-          let type: 'skip' | 'partial_watch' | 'full_watch' = 'partial_watch';
-          if (duration < 3000) type = 'skip';
-          else if (duration > 30000) type = 'full_watch';
-          
-          recordInteraction(previousItem.id, previousItem.genre_ids || [], type);
-        }
+    if (!containerRef.current) return;
 
-        setActiveIndex(index);
-        setLastActiveIndex(index);
-        setStartTime(Date.now());
+    const index = Math.round(containerRef.current.scrollTop / window.innerHeight);
+
+    if (index !== activeIndex) {
+      const duration = Date.now() - startTime;
+      const previousItem = items[lastActiveIndex];
+
+      if (previousItem) {
+        let type: 'skip' | 'partial_watch' | 'full_watch' = 'partial_watch';
+
+        if (duration < 3000) type = 'skip';
+        else if (duration > 30000) type = 'full_watch';
+
+        recordInteraction(previousItem.id, previousItem.genre_ids || [], type);
       }
-      
-      // Load more when we are near the end
-      if (index >= items.length - 3 && hasMore && !loading) {
-        loadMore();
-      }
+
+      setActiveIndex(index);
+      setLastActiveIndex(index);
+      setStartTime(Date.now());
+    }
+
+    if (index >= items.length - 3 && hasMore && !loading) {
+      loadMore();
     }
   };
 
   if (loading && items.length === 0) {
     return (
-      <div className="h-screen bg-black flex items-center justify-center text-white">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+      <div className="flex h-screen items-center justify-center bg-black text-white">
+        <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-t-2 border-primary" />
       </div>
     );
   }
 
   return (
-    <div 
-      ref={containerRef}
-      className="h-screen w-full overflow-y-scroll snap-y snap-mandatory bg-black scroll-smooth"
-      onScroll={handleScroll}
-    >
-      {items.map((item, index) => (
-        <ShortCard 
-          key={`${item.id}-${index}`} 
-          item={item} 
-          isActive={index === activeIndex} 
-          navigate={navigate}
-          myList={{ addToList, isInList, removeFromList }}
-          isMuted={isMuted}
-          toggleMute={() => setIsMuted(!isMuted)}
-          recordInteraction={recordInteraction}
-        />
-      ))}
-      {loading && items.length > 0 && (
-        <div className="snap-start h-screen w-full flex items-center justify-center bg-black text-white">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+    <div className="relative h-screen overflow-hidden bg-black">
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-40 flex items-center justify-between px-4 pt-24 md:px-8">
+        <div className="rounded-full border border-white/10 bg-black/45 px-4 py-2 backdrop-blur-xl">
+          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-white/65">Shorts</p>
+          <p className="mt-1 text-sm text-white">Swipe for quick picks</p>
         </div>
-      )}
+        <div className="rounded-full border border-white/10 bg-black/45 px-4 py-2 text-sm text-white/80 backdrop-blur-xl">
+          {Math.min(activeIndex + 1, Math.max(items.length, 1))} / {Math.max(items.length, 1)}
+        </div>
+      </div>
+
+      <div
+        ref={containerRef}
+        className="h-screen w-full snap-y snap-mandatory overflow-y-scroll scroll-smooth bg-black"
+        onScroll={handleScroll}
+      >
+        {items.map((item, index) => (
+          <ShortCard
+            key={`${item.id}-${item.videoId}`}
+            item={item}
+            isActive={index === activeIndex}
+            navigate={navigate}
+            myList={{ addToList, isInList, removeFromList }}
+            isMuted={isMuted}
+            toggleMute={() => setIsMuted((value) => !value)}
+            recordInteraction={recordInteraction}
+          />
+        ))}
+        {loading && items.length > 0 && (
+          <div className="flex h-screen w-full snap-start items-center justify-center bg-black text-white">
+            <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-t-2 border-primary" />
+          </div>
+        )}
+      </div>
     </div>
   );
 };
 
 const ActionButton: React.FC<{
-  onClick: (e: any) => void;
+  onClick: (e: React.MouseEvent<HTMLButtonElement>) => void;
   icon: React.ReactNode;
   label: string;
   active?: boolean;
   delay?: number;
-  itemId: number;
-}> = ({ onClick, icon, label, active = false, delay = 0, itemId }) => {
+}> = ({ onClick, icon, label, active = false, delay = 0 }) => {
   return (
     <motion.button
-        initial={{ opacity: 0, x: 20 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ delay, duration: 0.2 }}
-        onClick={onClick}
-        className="flex flex-col items-center gap-1 group w-full outline-none hover:scale-110 transition-transform"
+      type="button"
+      initial={{ opacity: 0, x: 20 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ delay, duration: 0.2 }}
+      onClick={onClick}
+      className="flex w-full flex-col items-center gap-1 rounded-2xl outline-none transition-transform hover:scale-110"
     >
-        <div className={`p-3 rounded-full transition-all duration-300 ${active ? 'bg-primary text-black' : 'bg-white/10 text-white hover:bg-white/20'}`}>
+      <div className={`rounded-full p-3 transition-all duration-300 ${active ? 'bg-primary text-black shadow-lg shadow-primary/30' : 'bg-white/10 text-white hover:bg-white/20'}`}>
         {icon}
-        </div>
-        <span className="text-[10px] font-medium text-white/80">{label}</span>
+      </div>
+      <span className="text-[10px] font-medium text-white/80">{label}</span>
     </motion.button>
   );
 };
 
 const MenuToggleButton: React.FC<{
-    isMenuOpen: boolean;
-    onClick: (e: any) => void;
-    itemId: number;
-}> = ({ isMenuOpen, onClick, itemId }) => {
-    return (
-        <button
-            onClick={onClick}
-            className={`p-3 md:p-4 rounded-full transition-all duration-300 shadow-lg outline-none 
-                ${isMenuOpen ? 'bg-primary text-black rotate-180' : 'bg-black/50 text-white border border-white/20 hover:bg-white/20'}
-                hover:scale-110
-            `}
-        >
-            <ChevronUp size={24} />
-        </button>
-    );
+  isMenuOpen: boolean;
+  onClick: (e: React.MouseEvent<HTMLButtonElement>) => void;
+}> = ({ isMenuOpen, onClick }) => {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-full p-3 shadow-lg outline-none transition-all duration-300 md:p-4 ${
+        isMenuOpen ? 'rotate-180 bg-primary text-black' : 'border border-white/20 bg-black/50 text-white hover:bg-white/20'
+      } hover:scale-110`}
+    >
+      <ChevronUp size={24} />
+    </button>
+  );
 };
 
 const WatchNowButton: React.FC<{
-    onClick: (e: any) => void;
-    itemId: number;
-}> = ({ onClick, itemId }) => {
-    return (
-         <button 
-            onClick={onClick}
-            className={`bg-white text-black px-6 py-3 rounded-full font-bold flex items-center gap-2 hover:bg-gray-200 transition-all outline-none hover:scale-105`}
-        >
-            <Play size={20} fill="currentColor" />
-            Watch Now
-        </button>
-    );
+  onClick: (e: React.MouseEvent<HTMLButtonElement>) => void;
+}> = ({ onClick }) => {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex items-center gap-2 rounded-full bg-white px-6 py-3 font-bold text-black outline-none transition-all hover:scale-105 hover:bg-gray-200"
+    >
+      <Play size={20} fill="currentColor" />
+      Watch Now
+    </button>
+  );
 };
 
-const ShortCard: React.FC<{ 
-  item: ShortItem; 
-  isActive: boolean; 
-  navigate: any;
-  myList: any;
+interface ShortsListActions {
+  addToList: (media: Media) => void;
+  isInList: (id: number) => boolean;
+  removeFromList: (id: number) => void;
+}
+
+const ShortCard: React.FC<{
+  item: ShortItem;
+  isActive: boolean;
+  navigate: ReturnType<typeof useNavigate>;
+  myList: ShortsListActions;
   isMuted: boolean;
   toggleMute: () => void;
-  recordInteraction: (id: number, genres: number[], type: any) => void;
+  recordInteraction: ReturnType<typeof useWatchHistory>['recordInteraction'];
 }> = ({ item, isActive, navigate, myList, isMuted, toggleMute, recordInteraction }) => {
   const inList = myList.isInList(item.id);
   const [isPlaying, setIsPlaying] = useState(true);
@@ -189,7 +206,7 @@ const ShortCard: React.FC<{
   }, []);
 
   useEffect(() => {
-    let timer: NodeJS.Timeout;
+    let timer: NodeJS.Timeout | undefined;
     if (isActive && isPlaying && isMobileLandscape && !isMenuOpen) {
       timer = setTimeout(() => {
         setShowInfo(false);
@@ -197,11 +214,15 @@ const ShortCard: React.FC<{
     } else {
       setShowInfo(true);
     }
-    return () => clearTimeout(timer);
+
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
   }, [isActive, isPlaying, isMobileLandscape, isMenuOpen]);
 
-  const handleToggleList = (e: React.MouseEvent) => {
+  const handleToggleList = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
+
     if (inList) {
       myList.removeFromList(item.id);
     } else {
@@ -219,216 +240,236 @@ const ShortCard: React.FC<{
   };
 
   const togglePlay = () => {
-    if (iframeRef.current && iframeRef.current.contentWindow) {
+    if (iframeRef.current?.contentWindow) {
       const action = isPlaying ? 'pauseVideo' : 'playVideo';
-      iframeRef.current.contentWindow.postMessage(JSON.stringify({
-        event: 'command',
-        func: action,
-        args: ''
-      }), '*');
-      setIsPlaying(!isPlaying);
+      iframeRef.current.contentWindow.postMessage(
+        JSON.stringify({
+          event: 'command',
+          func: action,
+          args: ''
+        }),
+        '*'
+      );
+      setIsPlaying((value) => !value);
     }
   };
 
-  const handleDoubleTap = (e: React.MouseEvent) => {
+  const handleDoubleTap = (stopPropagation: () => void) => {
     const now = Date.now();
-    const DOUBLE_TAP_DELAY = 300;
-    
-    if (now - lastTap.current < DOUBLE_TAP_DELAY) {
-      // Double tap detected
-      e.stopPropagation();
+    const doubleTapDelay = 300;
+
+    if (now - lastTap.current < doubleTapDelay) {
+      stopPropagation();
       setShowHeart(true);
       setIsLiked(true);
       recordInteraction(item.id, item.genre_ids || [], 'like');
       setTimeout(() => setShowHeart(false), 1000);
     } else {
-        // Single tap - toggle play
-        togglePlay();
+      togglePlay();
     }
+
     lastTap.current = now;
   };
 
-  const toggleFullscreen = (e: React.MouseEvent) => {
+  const toggleFullscreen = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
     if (!videoContainerRef.current) return;
 
     if (document.fullscreenElement) {
       document.exitFullscreen();
-    } else {
-      videoContainerRef.current.requestFullscreen().catch(err => {
-        console.error(`Error attempting to enable fullscreen: ${err.message}`);
-      });
+      return;
     }
+
+    videoContainerRef.current.requestFullscreen().catch((error: Error) => {
+      console.error(`Error attempting to enable fullscreen: ${error.message}`);
+    });
   };
 
   return (
-    <div 
-      className="h-screen w-full snap-start relative flex items-center justify-center bg-black overflow-hidden outline-none"
-      onClick={handleDoubleTap}
-      tabIndex={0}
-    >
-      {/* Background Blur */}
-      <div 
-        className="absolute inset-0 opacity-30 blur-3xl scale-125 z-0"
-        style={{ 
+    <div className="relative flex h-screen w-full snap-start items-center justify-center overflow-hidden bg-black">
+      <button
+        type="button"
+        aria-label={`Play or pause ${item.title}`}
+        className="absolute inset-0 z-10 outline-none"
+        onClick={(e) => {
+          handleDoubleTap(() => e.stopPropagation());
+        }}
+      />
+      <div
+        className="absolute inset-0 z-0 scale-125 opacity-30 blur-3xl"
+        style={{
           backgroundImage: `url(${getImageUrl(item.poster_path, 'w500')})`,
-          backgroundSize: 'cover', 
-          backgroundPosition: 'center' 
+          backgroundSize: 'cover',
+          backgroundPosition: 'center'
         }}
       />
 
-      {/* Video Container */}
-      <div 
+      <div
         ref={videoContainerRef}
-        className="relative w-full h-full md:max-w-6xl md:h-[85vh] z-10 flex items-center justify-center shadow-2xl bg-black"
+        className="relative z-10 flex h-full w-full items-center justify-center bg-black shadow-2xl md:h-[85vh] md:max-w-6xl md:overflow-hidden md:rounded-[2rem] md:border md:border-white/10"
       >
         {isActive ? (
           <iframe
             ref={iframeRef}
             src={`https://www.youtube.com/embed/${item.videoId}?autoplay=1&controls=0&mute=${isMuted ? 1 : 0}&loop=1&playlist=${item.videoId}&showinfo=0&rel=0&iv_load_policy=3&modestbranding=1&enablejsapi=1&origin=${window.location.origin}`}
-            className="w-full h-full object-contain pointer-events-none"
+            className="h-full w-full object-contain pointer-events-none"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             title={item.title}
           />
         ) : (
-           <img 
-             src={`https://img.youtube.com/vi/${item.videoId}/maxresdefault.jpg`} 
-             className="w-full h-full object-contain opacity-50"
-             alt={item.title}
-           />
-        )}
-        
-        {/* Play/Pause overlay handled by DoubleTap */}
-        {!isPlaying && (
-            <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none">
-             <div className="bg-black/50 p-6 rounded-full backdrop-blur-sm transition-transform scale-100 opacity-100">
-                <Play size={48} fill="white" className="text-white ml-2" />
-             </div>
-            </div>
+          <img
+            src={`https://img.youtube.com/vi/${item.videoId}/maxresdefault.jpg`}
+            className="h-full w-full object-contain opacity-50"
+            alt={item.title}
+          />
         )}
 
-        {/* Heart Animation Overlay */}
+        {!isPlaying && (
+          <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center">
+            <div className="scale-100 rounded-full bg-black/50 p-6 opacity-100 backdrop-blur-sm transition-transform">
+              <Play size={48} fill="white" className="ml-2 text-white" />
+            </div>
+          </div>
+        )}
+
         <AnimatePresence>
-            {showHeart && (
-                <motion.div
-                    initial={{ scale: 0, opacity: 0 }}
-                    animate={{ scale: 1.5, opacity: 1, rotate: [0, -10, 10, 0] }}
-                    exit={{ scale: 0, opacity: 0 }}
-                    transition={{ duration: 0.5 }}
-                    className="absolute inset-0 flex items-center justify-center z-30 pointer-events-none"
-                >
-                    <Heart size={100} fill="red" className="text-red-500 drop-shadow-lg" />
-                </motion.div>
-            )}
+          {showHeart && (
+            <motion.div
+              initial={{ scale: 0, opacity: 0 }}
+              animate={{ scale: 1.5, opacity: 1, rotate: [0, -10, 10, 0] }}
+              exit={{ scale: 0, opacity: 0 }}
+              transition={{ duration: 0.5 }}
+              className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center"
+            >
+              <Heart size={100} fill="red" className="text-red-500 drop-shadow-lg" />
+            </motion.div>
+          )}
         </AnimatePresence>
       </div>
 
-      {/* Overlay UI */}
       <div className="absolute inset-0 z-30 pointer-events-none">
-        
-        {/* Toggle Menu Button */}
-        <div className={`absolute right-4 bottom-24 md:bottom-1/3 md:right-8 z-50 transition-opacity duration-500 ${showInfo ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
-             <MenuToggleButton 
-                isMenuOpen={isMenuOpen}
-                onClick={(e) => {
-                    e.stopPropagation();
-                    setIsMenuOpen(!isMenuOpen);
-                }}
-                itemId={item.id}
-             />
+        <div className="absolute left-0 right-0 top-0 flex items-start justify-between gap-4 px-5 pt-28 md:px-8 md:pt-28">
+          <div className={`rounded-full border border-white/10 bg-black/45 px-3 py-2 text-xs font-medium text-white/85 backdrop-blur-xl transition-opacity duration-500 ${showInfo ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
+            Quick preview
+          </div>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleMute();
+            }}
+            className={`pointer-events-auto rounded-full border border-white/10 bg-black/45 p-3 text-white backdrop-blur-xl transition-opacity duration-500 ${showInfo ? 'opacity-100' : 'opacity-0'}`}
+            aria-label={isMuted ? 'Unmute short' : 'Mute short'}
+          >
+            {isMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}
+          </button>
         </div>
 
-        {/* Action Menu */}
+        <div className={`absolute right-4 bottom-24 z-50 transition-opacity duration-500 md:right-8 md:bottom-1/3 ${showInfo ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
+          <MenuToggleButton
+            isMenuOpen={isMenuOpen}
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsMenuOpen((value) => !value);
+            }}
+          />
+        </div>
+
         <AnimatePresence>
-            {isMenuOpen && (
-                <motion.div 
-                    initial={{ opacity: 0, y: 20, scale: 0.9 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: 20, scale: 0.9 }}
-                    transition={{ duration: 0.2 }}
-                    className="absolute right-4 bottom-40 md:bottom-[calc(33%+5rem)] md:right-8 flex flex-col gap-4 items-center pointer-events-auto z-40 bg-black/60 backdrop-blur-md p-2 rounded-2xl border border-white/10"
-                >
-                     <ActionButton 
-                        onClick={() => {
-                            setIsLiked(!isLiked);
-                            recordInteraction(item.id, item.genre_ids || [], isLiked ? 'dislike' : 'like'); // Toggle-ish, though dislike isn't exactly un-like
-                        }}
-                        icon={<Heart size={20} fill={isLiked ? "red" : "none"} className={isLiked ? "text-red-500" : ""} />}
-                        label="Like"
-                        active={isLiked}
-                        delay={0.05}
-                        itemId={item.id}
-                    />
+          {isMenuOpen && (
+            <motion.div
+              initial={{ opacity: 0, y: 20, scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.9 }}
+              transition={{ duration: 0.2 }}
+              className="pointer-events-auto absolute right-4 bottom-40 z-40 flex flex-col items-center gap-4 rounded-2xl border border-white/10 bg-black/60 p-2 backdrop-blur-md md:right-8 md:bottom-[calc(33%+5rem)]"
+            >
+              <ActionButton
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const nextLiked = !isLiked;
+                  setIsLiked(nextLiked);
+                  recordInteraction(item.id, item.genre_ids || [], nextLiked ? 'like' : 'dislike');
+                }}
+                icon={<Heart size={20} fill={isLiked ? 'red' : 'none'} className={isLiked ? 'text-red-500' : ''} />}
+                label="Like"
+                active={isLiked}
+                delay={0.05}
+              />
 
-                    <ActionButton 
-                        onClick={handleToggleList}
-                        icon={inList ? <Check size={20} /> : <Plus size={20} />}
-                        label="My List"
-                        active={inList}
-                        delay={0.1}
-                        itemId={item.id}
-                    />
+              <ActionButton
+                onClick={handleToggleList}
+                icon={inList ? <Check size={20} /> : <Plus size={20} />}
+                label="My List"
+                active={inList}
+                delay={0.1}
+              />
 
-                    <ActionButton 
-                        onClick={() => navigate(`/movie/${item.id}`)}
-                        icon={<Info size={20} />}
-                        label="Details"
-                        delay={0.2}
-                        itemId={item.id}
-                    />
+              <ActionButton
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigate(`/movie/${item.id}`);
+                }}
+                icon={<Info size={20} />}
+                label="Details"
+                delay={0.2}
+              />
 
-                    <ActionButton 
-                        onClick={(e: any) => {
-                            e.stopPropagation();
-                            toggleMute();
-                        }}
-                        icon={isMuted ? (
-                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line></svg>
-                        ) : (
-                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
-                        )}
-                        label={isMuted ? 'Unmute' : 'Mute'}
-                        active={!isMuted}
-                        delay={0.3}
-                        itemId={item.id}
-                    />
+              <ActionButton
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleMute();
+                }}
+                icon={isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
+                label={isMuted ? 'Unmute' : 'Mute'}
+                active={!isMuted}
+                delay={0.3}
+              />
 
-                    <ActionButton 
-                        onClick={toggleFullscreen}
-                        icon={<Maximize size={20} />}
-                        label="Full"
-                        delay={0.4}
-                        itemId={item.id}
-                    />
-                </motion.div>
-            )}
+              <ActionButton
+                onClick={toggleFullscreen}
+                icon={<Maximize size={20} />}
+                label="Full"
+                delay={0.4}
+              />
+            </motion.div>
+          )}
         </AnimatePresence>
 
-        {/* Bottom Info Section */}
-        <div className="absolute bottom-0 left-0 right-0 p-6 md:p-12 bg-gradient-to-t from-black via-black/60 to-transparent flex items-end justify-between gap-6">
-          <div className={`flex-1 pr-16 md:pr-0 transition-opacity duration-500 ${showInfo ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
-            <h2 
-                className="text-2xl md:text-4xl font-bold text-white mb-2 drop-shadow-lg cursor-pointer hover:text-primary transition-colors"
-                onClick={() => navigate(`/movie/${item.id}`)}
+        <div className="absolute bottom-0 left-0 right-0 flex items-end justify-between gap-6 bg-gradient-to-t from-black via-black/60 to-transparent p-6 md:p-12">
+          <div className={`flex-1 pr-16 transition-opacity duration-500 md:pr-0 ${showInfo ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
+            <div className="mb-3 flex flex-wrap items-center gap-2 text-xs text-white/70">
+              <span className="rounded-full border border-white/10 bg-white/10 px-3 py-1">Short pick</span>
+              <span className="rounded-full border border-white/10 bg-white/10 px-3 py-1">Tap to pause</span>
+              <span className="rounded-full border border-white/10 bg-white/10 px-3 py-1">Double-tap to like</span>
+            </div>
+
+            <button
+              type="button"
+              className="mb-2 text-left text-2xl font-bold text-white drop-shadow-lg transition-colors hover:text-primary md:text-4xl"
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate(`/movie/${item.id}`);
+              }}
             >
-                {item.title}
-            </h2>
-            <p 
-                className={`text-gray-200 max-w-2xl drop-shadow-md text-sm md:text-base mb-4 cursor-pointer transition-all duration-300 ${isExpanded ? '' : 'line-clamp-2 md:line-clamp-3'}`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsExpanded(!isExpanded);
-                }}
+              {item.title}
+            </button>
+            <button
+              type="button"
+              className={`mb-4 max-w-2xl text-left text-sm text-gray-200 drop-shadow-md transition-all duration-300 md:text-base ${isExpanded ? '' : 'line-clamp-2 md:line-clamp-3'}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsExpanded((value) => !value);
+              }}
             >
-                {item.overview}
-            </p>
-            
-            <WatchNowButton 
-                onClick={(e) => {
-                  e.stopPropagation();
-                  navigate(`/watch/movie/${item.id}`);
-                }}
-                itemId={item.id}
+              {item.overview}
+            </button>
+
+            <WatchNowButton
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate(`/watch/movie/${item.id}`);
+              }}
             />
           </div>
         </div>

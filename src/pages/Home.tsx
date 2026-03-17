@@ -152,7 +152,7 @@ export const Home: React.FC = () => {
         {recommendations.length > 0 && (
             <MediaRow title="Recommended For You" items={recommendations} />
         )}
-        <MediaRow title="Trending Now" items={trending.filter(t => t.id !== (heroItem?.id || trending[0]?.id))} />
+        <MediaRow title="Top 10 Trending Today" items={trending.filter(t => t.id !== (heroItem?.id || trending[0]?.id)).slice(0, 10)} isTop10 />
         <MediaRow title="Popular Movies" items={popularMovies} linkTo="/movies" />
         <MediaRow title="Popular TV Shows" items={popularTV} linkTo="/tv" />
       </div>
