@@ -117,6 +117,48 @@ export const Navbar: React.FC = () => {
     setSearchHistory(getSearchHistory());
   };
 
+  const renderRecentSearches = () => (
+    <AnimatePresence>
+      {isSearchFocused && searchHistory.length > 0 && !searchQuery && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 10 }}
+          className="absolute top-full right-0 mt-2 w-full md:w-72 rounded-xl border border-white/10 bg-surface-2/95 backdrop-blur-xl py-2 shadow-panel z-50"
+        >
+          <div className="flex items-center px-3 pb-2 mb-1 border-b border-white/10">
+            <span className="flex items-center gap-2 text-xs font-medium text-gray-400">
+              <Clock size={12} />
+              Recent Searches
+            </span>
+          </div>
+          {searchHistory.map((query) => (
+            <div
+              key={query}
+              className="w-full flex items-center justify-between px-2 min-h-[44px] text-sm text-gray-300 hover:bg-white/10 transition-colors"
+            >
+              <button
+                type="button"
+                onClick={() => handleHistoryClick(query)}
+                className="flex-1 text-left py-2 hover:text-white"
+              >
+                {query}
+              </button>
+              <button 
+                type="button"
+                className="p-2 flex items-center justify-center text-gray-500 hover:text-gray-300 transition-colors"
+                onClick={(e) => handleRemoveHistory(e, query)}
+                aria-label={`Remove ${query} from history`}
+              >
+                <XCircle size={14} />
+              </button>
+            </div>
+          ))}
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+
   return (
     <header
       className={`fixed top-0 z-50 w-full px-3 pt-[env(safe-area-inset-top)] transition-all duration-500 md:px-5 ${
@@ -208,38 +250,7 @@ export const Navbar: React.FC = () => {
               <Search size={18} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             </form>
             
-            <AnimatePresence>
-              {isSearchFocused && searchHistory.length > 0 && !searchQuery && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 10 }}
-                  className="absolute top-full right-0 mt-2 w-72 rounded-xl border border-white/10 bg-[#1a1a1a]/95 backdrop-blur-xl py-2 shadow-xl z-50"
-                >
-                  <div className="flex items-center px-3 pb-2 mb-1 border-b border-white/5">
-                    <span className="flex items-center gap-2 text-xs font-medium text-gray-400">
-                      <Clock size={12} />
-                      Recent Searches
-                    </span>
-                  </div>
-                  {searchHistory.map((query) => (
-                    <button
-                      key={query}
-                      type="button"
-                      onClick={() => handleHistoryClick(query)}
-                      className="w-full flex items-center justify-between px-3 py-2 text-sm text-gray-300 hover:bg-white/10 hover:text-white transition-colors"
-                    >
-                      <span>{query}</span>
-                      <XCircle 
-                        size={14} 
-                        className="text-gray-500 hover:text-gray-300 transition-colors"
-                        onClick={(e) => handleRemoveHistory(e, query)}
-                      />
-                    </button>
-                  ))}
-                </motion.div>
-              )}
-            </AnimatePresence>
+            {renderRecentSearches()}
           </div>
 
 
