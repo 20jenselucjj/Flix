@@ -282,7 +282,7 @@ export const Navbar: React.FC = () => {
             <button
               type="button"
               aria-label="Toggle menu"
-              className="rounded-full border border-white/10 bg-white/5 p-2.5 text-white"
+              className="rounded-full border border-white/10 bg-white/5 p-2.5 text-white xl:hidden"
               onClick={() => setIsMobileMenuOpen((value) => !value)}
             >
               {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
