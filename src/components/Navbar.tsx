@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Search, Film, Tv, Menu, X, ChevronDown, Download, Clock, XCircle } from 'lucide-react';
+import { Search, Film, Tv, Menu, X, ChevronDown, Clock, XCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Capacitor } from '@capacitor/core';
 import { api } from '../lib/api';
 import { Genre } from '../types';
 import { FocusableLink } from './FocusableLink';
@@ -33,10 +32,6 @@ const removeSearchFromHistory = (query: string) => {
   localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(updated));
 };
 
-interface BeforeInstallPromptEvent extends Event {
-  prompt: () => Promise<void>;
-  userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
-}
 
 export const Navbar: React.FC = () => {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -48,12 +43,10 @@ export const Navbar: React.FC = () => {
   const [tvGenres, setTvGenres] = useState<Genre[]>([]);
   const [isGenreMenuOpen, setIsGenreMenuOpen] = useState(false);
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
-  const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+
   const searchInputRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const location = useLocation();
-
-  const isNative = Capacitor.isNativePlatform();
 
   useEffect(() => {
     setSearchHistory(getSearchHistory());
@@ -62,11 +55,6 @@ export const Navbar: React.FC = () => {
   useEffect(() => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 8);
-    };
-
-    const handleBeforeInstallPrompt = (event: Event) => {
-      event.preventDefault();
-      setInstallPrompt(event as BeforeInstallPromptEvent);
     };
 
     const fetchGenres = async () => {
@@ -84,25 +72,12 @@ export const Navbar: React.FC = () => {
     };
 
     window.addEventListener('scroll', handleScroll);
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     fetchGenres();
 
     return () => {
       window.removeEventListener('scroll', handleScroll);
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     };
   }, []);
-
-  const handleInstallClick = async () => {
-    if (!installPrompt) return;
-
-    await installPrompt.prompt();
-    const { outcome } = await installPrompt.userChoice;
-
-    if (outcome === 'accepted') {
-      setInstallPrompt(null);
-    }
-  };
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -267,16 +242,6 @@ export const Navbar: React.FC = () => {
             </AnimatePresence>
           </div>
 
-          {installPrompt && !isNative && (
-            <button
-              type="button"
-              onClick={handleInstallClick}
-              className="hidden items-center gap-2 rounded-full border border-primary/25 bg-primary/15 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary/25 lg:flex"
-            >
-              <Download size={16} />
-              Install app
-            </button>
-          )}
 
           <div className="flex items-center gap-3">
             <div className="md:hidden">
@@ -340,16 +305,6 @@ export const Navbar: React.FC = () => {
               <MobileNavLink to="/browse-genres" label="Browse Genres" onClick={closeMobileMenu} />
               <MobileNavLink to="/my-list" label="My List" onClick={closeMobileMenu} />
 
-              {installPrompt && !isNative && (
-                <button
-                  type="button"
-                  onClick={handleInstallClick}
-                  className="mt-2 flex items-center justify-center gap-2 rounded-2xl border border-primary/25 bg-primary/15 px-4 py-3 text-sm font-semibold text-white"
-                >
-                  <Download size={16} />
-                  Install app
-                </button>
-              )}
             </nav>
           </motion.div>
         )}
