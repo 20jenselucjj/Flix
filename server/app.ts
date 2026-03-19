@@ -14,6 +14,8 @@ import { fileURLToPath } from 'url'
 import mediaRoutes from './routes/media.routes.js'
 import historyRoutes from './routes/history.routes.js'
 import listRoutes from './routes/list.routes.js'
+import searchRoutes from './routes/search.routes.js'
+import { CONFIG } from './config.js'
 import { supabaseService } from './services/supabase.service.js'
 
 // for esm mode
@@ -25,7 +27,19 @@ dotenv.config()
 
 const app: express.Application = express()
 
-app.use(cors())
+const allowedOrigins = new Set(CONFIG.CORS_ALLOWED_ORIGINS)
+
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.has(origin)) {
+      callback(null, true)
+      return
+    }
+
+    callback(new Error('Not allowed by CORS'))
+  },
+  credentials: true,
+}))
 app.use(express.json({ limit: '10mb' }))
 app.use(express.urlencoded({ extended: true, limit: '10mb' }))
 
@@ -35,6 +49,7 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }))
 app.use('/api', mediaRoutes)
 app.use('/api/history', historyRoutes)
 app.use('/api/list', listRoutes)
+app.use('/api/search', searchRoutes)
 
 /**
  * health

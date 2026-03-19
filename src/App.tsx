@@ -26,6 +26,7 @@ function App() {
 
   return (
     <Routes>
+      <Route path="/watch/:type/:id" element={<Player />} />
       <Route path="/shorts" element={
         <>
           <Navbar />
@@ -41,7 +42,6 @@ function App() {
         <Route path="genre/:type/:genreId" element={<Genre />} />
         <Route path="my-list" element={<MyList />} />
         <Route path=":type/:id" element={<Details />} />
-        <Route path="watch/:type/:id" element={<Player />} />
         <Route path="*" element={<EmptyState
           icon={HomeIcon}
           title="Page not found"

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Media } from '../types';
 import { api } from '../lib/api';
 
@@ -22,6 +22,21 @@ interface InteractionEvent {
 
 const USER_ID_KEY = 'flix_user_id';
 const INTERACTIONS_KEY = 'flix_user_interactions';
+
+const normalizeHistoryMedia = (media: Media): Media => ({
+  id: media.id,
+  title: media.title,
+  name: media.name,
+  overview: media.overview,
+  poster_path: media.poster_path,
+  backdrop_path: media.backdrop_path,
+  media_type: media.media_type,
+  vote_average: media.vote_average,
+  release_date: media.release_date,
+  first_air_date: media.first_air_date,
+  certification: media.certification,
+  genre_ids: media.genre_ids,
+});
 
 const getUserId = () => {
   let userId = localStorage.getItem(USER_ID_KEY);
@@ -79,9 +94,10 @@ export const useWatchHistory = () => {
     fetchHistory();
   }, [userId]);
 
-  const saveProgress = async (media: Media, timestamp: number, duration: number, season?: number, episode?: number) => {
+  const saveProgress = useCallback(async (media: Media, timestamp: number, duration: number, season?: number, episode?: number) => {
     if (!media || !media.id) return;
 
+    const normalizedMedia = normalizeHistoryMedia(media);
     const progress = duration > 0 ? (timestamp / duration) * 100 : 0;
     
     // Optimistic update
@@ -94,7 +110,7 @@ export const useWatchHistory = () => {
       });
       
       const newItem: WatchHistoryItem = {
-        ...media,
+        ...normalizedMedia,
         progress,
         timestamp,
         duration,
@@ -109,33 +125,52 @@ export const useWatchHistory = () => {
     try {
         await api.saveProgress({
             userId,
-            mediaId: media.id,
-            mediaType: media.media_type,
+            mediaId: normalizedMedia.id,
+            mediaType: normalizedMedia.media_type,
             progress,
             timestamp,
             duration,
             season,
             episode,
-            mediaDetails: media
+            mediaDetails: normalizedMedia
         });
     } catch (error) {
         console.error('Failed to save progress to server', error);
     }
-  };
+  }, [userId]);
 
-  const getProgress = (id: number, season?: number, episode?: number) => {
+  const saveProgressOnUnload = useCallback((media: Media, timestamp: number, duration: number, season?: number, episode?: number) => {
+    if (!media || !media.id) return false;
+
+    const normalizedMedia = normalizeHistoryMedia(media);
+    const progress = duration > 0 ? (timestamp / duration) * 100 : 0;
+
+    return api.saveProgressOnUnload({
+      userId,
+      mediaId: normalizedMedia.id,
+      mediaType: normalizedMedia.media_type,
+      progress,
+      timestamp,
+      duration,
+      season,
+      episode,
+      mediaDetails: normalizedMedia,
+    });
+  }, [userId]);
+
+  const getProgress = useCallback((id: number, season?: number, episode?: number) => {
     if (season && episode) {
       return history.find((item) => item.id === id && item.season === season && item.episode === episode);
     }
     return history.find((item) => item.id === id);
-  };
+  }, [history]);
 
-  const removeFromHistory = (id: number) => {
+  const removeFromHistory = useCallback((id: number) => {
     setHistory((prev) => prev.filter((item) => item.id !== id));
     // TODO: Add API call to remove from server
-  };
+  }, []);
 
-  const getTopGenres = () => {
+  const getTopGenres = useCallback(() => {
     const genreCounts: Record<number, number> = {};
 
     history.forEach((item) => {
@@ -159,9 +194,9 @@ export const useWatchHistory = () => {
       .slice(0, 3);
 
     return sortedGenres.join('|');
-  };
+  }, [history]);
 
-  const recordInteraction = (mediaId: number, genres: number[], type: InteractionType) => {
+  const recordInteraction = useCallback((mediaId: number, genres: number[], type: InteractionType) => {
     const newInteraction: InteractionEvent = {
       mediaId,
       genres,
@@ -169,9 +204,9 @@ export const useWatchHistory = () => {
       timestamp: Date.now(),
     };
     setInteractions((prev) => [...prev, newInteraction]);
-  };
+  }, []);
 
-  const getWeightedGenres = () => {
+  const getWeightedGenres = useCallback(() => {
     const genreScores: Record<number, number> = {};
     const now = Date.now();
     const MS_PER_DAY = 1000 * 60 * 60 * 24;
@@ -206,15 +241,16 @@ export const useWatchHistory = () => {
       .map(([id]) => id)
       .slice(0, 5)
       .join('|');
-  };
+  }, [getTopGenres, interactions]);
 
-  return {
+  return useMemo(() => ({
     history,
     saveProgress,
+    saveProgressOnUnload,
     getProgress,
     removeFromHistory,
     getTopGenres,
     recordInteraction,
     getWeightedGenres
-  };
+  }), [getProgress, getTopGenres, getWeightedGenres, history, recordInteraction, removeFromHistory, saveProgress, saveProgressOnUnload]);
 };

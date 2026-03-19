@@ -9,20 +9,8 @@ export const scraperService = {
       sources.push(
         {
           quality: 'HD',
-          url: `https://vidsrc.cc/v2/embed/movie/${tmdbId}`,
-          source: 'VidSrc.cc (v2)',
-          type: 'embed'
-        },
-        {
-          quality: 'HD',
-          url: `https://vidsrcme.ru/embed/movie/${tmdbId}`,
-          source: 'VidSrcMe.ru',
-          type: 'embed'
-        },
-        {
-          quality: 'HD',
-          url: `https://vidsrcme.su/embed/movie/${tmdbId}`,
-          source: 'VidSrcMe.su',
+          url: `https://vidsrc.cc/v2/embed/movie/${tmdbId}?autoPlay=true`,
+          source: 'VidSrc.cc',
           type: 'embed'
         },
         {
@@ -54,20 +42,8 @@ export const scraperService = {
       sources.push(
         {
           quality: 'HD',
-          url: `https://vidsrc.cc/v2/embed/tv/${tmdbId}/${season}/${episode}?autonext=1`,
+          url: `https://vidsrc.cc/v2/embed/tv/${tmdbId}/${season}/${episode}?autoPlay=true&autonext=1`,
           source: `VidSrc.cc (S${season} E${episode})`,
-          type: 'embed'
-        },
-        {
-          quality: 'HD',
-          url: `https://vidsrcme.ru/embed/tv/${tmdbId}/${season}/${episode}?autonext=1`,
-          source: `VidSrcMe.ru (S${season} E${episode})`,
-          type: 'embed'
-        },
-        {
-          quality: 'HD',
-          url: `https://vidsrcme.su/embed/tv/${tmdbId}/${season}/${episode}?autonext=1`,
-          source: `VidSrcMe.su (S${season} E${episode})`,
           type: 'embed'
         },
         {

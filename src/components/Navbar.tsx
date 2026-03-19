@@ -199,7 +199,7 @@ export const Navbar: React.FC = () => {
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: 10 }}
-                    className="panel absolute top-full left-1/2 z-50 mt-3 grid w-[620px] -translate-x-1/2 grid-cols-2 gap-x-8 gap-y-2 rounded-[1.5rem] p-6"
+                    className="absolute top-full left-1/2 z-50 mt-3 grid w-[620px] -translate-x-1/2 grid-cols-2 gap-x-8 gap-y-2 rounded-[1.5rem] border border-white/10 bg-[#0d1018]/95 p-6 shadow-panel backdrop-blur-2xl"
                   >
                     <div>
                       <h3 className="mb-3 flex items-center gap-2 border-b border-white/10 pb-3 text-sm font-bold uppercase tracking-[0.2em] text-white/80">

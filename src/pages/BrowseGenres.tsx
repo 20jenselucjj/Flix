@@ -44,15 +44,7 @@ export const BrowseGenres: React.FC = () => {
           <div className="absolute inset-0 bg-gradient-to-br from-accent/15 via-transparent to-primary/10" />
           <div className="relative flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
             <div className="max-w-3xl">
-              <p className="mb-3 text-xs font-semibold uppercase tracking-[0.28em] text-primary/80">Browse smarter</p>
               <h1 className="text-3xl font-bold text-white md:text-5xl">Every genre, organized for faster discovery.</h1>
-              <p className="mt-4 max-w-2xl text-sm leading-7 text-text-secondary md:text-base">
-                Jump straight into the mood you want. Movie and TV categories are grouped, easy to scan, and tuned for quick browsing instead of endless hunting.
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-3 text-sm text-white/80">
-              <div className="rounded-full border border-white/10 bg-white/5 px-4 py-2">{movieGenres.length} movie genres</div>
-              <div className="rounded-full border border-white/10 bg-white/5 px-4 py-2">{tvGenres.length} TV genres</div>
             </div>
           </div>
         </section>

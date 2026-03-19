@@ -60,6 +60,79 @@ export const supabaseService = {
     }
   },
 
+  getSearchHistory: async (userId: string) => {
+    const { data, error } = await supabase
+      .from('search_history')
+      .select('*')
+      .eq('user_id', userId)
+      .order('searched_at', { ascending: false })
+      .limit(5);
+
+    if (error) {
+      console.error('Error fetching search history:', error);
+      return [];
+    }
+
+    return data;
+  },
+
+  addToSearchHistory: async (userId: string, query: string) => {
+    const normalizedQuery = query.trim();
+
+    const { error } = await supabase
+      .from('search_history')
+      .upsert(
+        {
+          user_id: userId,
+          query: normalizedQuery,
+          searched_at: new Date().toISOString(),
+        },
+        { onConflict: 'user_id,query' }
+      );
+
+    if (error) {
+      console.error('Error saving search history:', error);
+      throw error;
+    }
+
+    const { data: staleEntries, error: staleError } = await supabase
+      .from('search_history')
+      .select('id')
+      .eq('user_id', userId)
+      .order('searched_at', { ascending: false })
+      .range(5, 1000);
+
+    if (staleError) {
+      console.error('Error loading stale search history:', staleError);
+      throw staleError;
+    }
+
+    if (staleEntries && staleEntries.length > 0) {
+      const staleIds = staleEntries.map((entry) => entry.id);
+      const { error: deleteError } = await supabase
+        .from('search_history')
+        .delete()
+        .in('id', staleIds);
+
+      if (deleteError) {
+        console.error('Error trimming search history:', deleteError);
+        throw deleteError;
+      }
+    }
+  },
+
+  clearSearchHistory: async (userId: string) => {
+    const { error } = await supabase
+      .from('search_history')
+      .delete()
+      .eq('user_id', userId);
+
+    if (error) {
+      console.error('Error clearing search history:', error);
+      throw error;
+    }
+  },
+
   getMyList: async (userId: string) => {
     const { data, error } = await supabase
       .from('my_list')
